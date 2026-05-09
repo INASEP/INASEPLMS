@@ -1,0 +1,3288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INASEP — Plataforma de Formación</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+    <!-- CKEditor 4 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/tinymce@7.7.2/tinymce.min.js"></script>
+
+    <style>
+        :root {
+            /* ── Paleta INASEP ── */
+            --green-900: #0d1f14;
+            --green-800: #142a1b;
+            --green-700: #1e3d28;
+            --green-600: #2a5536;
+            --green-500: #3d7a4e;   /* tono medio del logo */
+            --green-400: #4a8c5c;   /* principal */
+            --green-300: #68a87a;
+            --green-200: #9fcfab;
+            --green-100: #d4edda;
+            --green-50:  #f0f8f2;
+
+            --primary:      #4a8c5c;
+            --primary-dark: #3d7a4e;
+            --primary-light:#68a87a;
+            --accent:       #8fbc8f; /* toque plateado-verdoso del globo */
+
+            --sidebar-bg:   #0d1f14;
+            --sidebar-nav:  #142a1b;
+            --sidebar-hover:#1e3d28;
+            --sidebar-border: rgba(255,255,255,0.07);
+
+            --bg:       #f4f7f5;
+            --card-bg:  #ffffff;
+            --text:     #1a2e1e;
+            --text-mid: #4a6651;
+            --text-light:#7a9880;
+            --border:   #d6e8da;
+
+            --success: #27ae60;
+            --warning: #e67e22;
+            --danger:  #c0392b;
+            --info:    #2980b9;
+
+            --radius:  10px;
+            --radius-lg: 16px;
+            --shadow:  0 2px 14px rgba(13,31,20,0.08);
+            --shadow-md: 0 6px 24px rgba(13,31,20,0.13);
+            --transition: 0.18s ease;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+
+        body {
+            font-family: 'Sora', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        /* ═══════════════════════════════
+           AUTH  –  pantalla de ingreso
+        ═══════════════════════════════ */
+        .auth-wrap {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 16px;
+            background: var(--green-900);
+            background-image:
+                radial-gradient(ellipse at 20% 50%, rgba(74,140,92,0.18) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 20%, rgba(143,188,143,0.10) 0%, transparent 50%);
+        }
+        .auth-card {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            padding: 40px 36px 36px;
+            width: 100%;
+            max-width: 430px;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+        }
+        .auth-logo {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .auth-logo img {
+            height: 80px;
+            object-fit: contain;
+        }
+        .auth-logo .brand {
+            margin-top: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-mid);
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+        .auth-card h2 {
+            font-size: 19px;
+            font-weight: 700;
+            color: var(--green-900);
+            margin-bottom: 22px;
+            text-align: center;
+        }
+
+        /* ═══════════════════════════════
+           FORMULARIOS genéricos
+        ═══════════════════════════════ */
+        .form-group { margin-bottom: 15px; }
+        .form-group label {
+            display: block;
+            font-size: 11.5px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--text-mid);
+            margin-bottom: 6px;
+        }
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 11px 13px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            background: #fafcfb;
+            color: var(--text);
+            transition: var(--transition);
+            resize: vertical;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(74,140,92,0.12);
+        }
+        .form-group textarea { min-height: 200px; font-family: 'DM Mono', monospace; font-size: 13px; }
+
+        /* CKEditor custom styling */
+        .cke_editor {
+            border-radius: 8px !important;
+            border: 2px solid var(--border) !important;
+        }
+        .cke_top {
+            background: var(--green-50) !important;
+            border-bottom: 1px solid var(--border) !important;
+            border-radius: 8px 8px 0 0 !important;
+        }
+        .cke_bottom {
+            background: var(--green-50) !important;
+            border-top: 1px solid var(--border) !important;
+        }
+        .cke_contents {
+            border-radius: 0 0 8px 8px !important;
+        }
+
+        /* Estilos para contenido renderizado */
+        .lesson-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            font-size: 14px;
+        }
+        .lesson-content table th {
+            background: var(--green-50);
+            font-weight: 600;
+            text-align: left;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+        }
+        .lesson-content table td {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+        }
+        .lesson-content table tr:nth-child(even) {
+            background: #fafcfb;
+        }
+        .lesson-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 16px 0;
+            box-shadow: var(--shadow);
+        }
+        .lesson-content ul, .lesson-content ol {
+            margin: 12px 0 12px 24px;
+        }
+        .lesson-content li {
+            margin: 6px 0;
+        }
+        .lesson-content blockquote {
+            border-left: 4px solid var(--primary);
+            padding: 12px 16px;
+            margin: 16px 0;
+            background: var(--green-50);
+            border-radius: 0 8px 8px 0;
+            font-style: italic;
+        }
+        .lesson-content h2 {
+            font-size: 22px;
+            margin-top: 28px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border);
+        }
+        .lesson-content h3 {
+            font-size: 18px;
+            margin-top: 22px;
+        }
+        .lesson-content p {
+            margin: 12px 0;
+            line-height: 1.8;
+        }
+        .lesson-content a {
+            color: var(--primary);
+            text-decoration: underline;
+        }
+        .lesson-content strong {
+            color: var(--green-900);
+        }
+
+        /* Estilos para botón de subida en CKEditor */
+        .cke_button__uploadimage_icon {
+            background-size: 16px !important;
+            background-position: center !important;
+            background-repeat: no-repeat !important;
+        }
+
+        /* Indicador de subida */
+        .upload-progress {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            padding: 24px 32px;
+            border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+            z-index: 10000;
+            text-align: center;
+            display: none;
+        }
+        .upload-progress.active {
+            display: block;
+        }
+        .upload-progress .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .form-group small { display:block; margin-top:5px; font-size:12px; color: var(--text-light); }
+
+        /* ═══════════════════════════════
+           BOTONES
+        ═══════════════════════════════ */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13.5px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: var(--transition);
+            text-decoration: none;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            box-shadow: 0 4px 16px rgba(74,140,92,0.35);
+            transform: translateY(-1px);
+        }
+        .btn-primary-full {
+            width: 100%;
+            justify-content: center;
+            padding: 13px 20px;
+            font-size: 15px;
+        }
+        .btn-secondary {
+            background: #eef3f0;
+            color: var(--text-mid);
+        }
+        .btn-secondary:hover { background: #dde8e1; }
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--border);
+            color: var(--text-mid);
+        }
+        .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-danger:hover { background: #a93226; }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-success:hover { background: #219a52; }
+        .btn-warning { background: var(--warning); color: #fff; }
+        .btn-warning:hover { background: #ca6f1e; }
+        .btn-sm { padding: 6px 13px; font-size: 12px; border-radius: 6px; }
+        .btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none !important; }
+
+        /* ═══════════════════════════════
+           ALERTAS
+        ═══════════════════════════════ */
+        .alert {
+            padding: 11px 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            display: none;
+            margin-bottom: 16px;
+            border-left: 4px solid;
+        }
+        .alert-error   { background:#fdecea; color:#9b2335; border-color:#e74c3c; }
+        .alert-success { background:#eafaf1; color:#1e7e34; border-color:#27ae60; }
+
+        .auth-toggle {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        .auth-toggle a {
+            color: var(--primary);
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .auth-toggle a:hover { text-decoration: underline; }
+
+        /* ═══════════════════════════════
+           LAYOUT DASHBOARD
+        ═══════════════════════════════ */
+        .dashboard { display: flex; min-height: 100vh; }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            z-index: 200;
+            transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+            overflow: hidden;
+        }
+        .sidebar-top {
+            padding: 22px 20px 16px;
+            border-bottom: 1px solid var(--sidebar-border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .sidebar-top img {
+            height: 44px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+        .sidebar-top .info { flex: 1; min-width: 0; }
+        .sidebar-top .info h3 {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sidebar-top .info .role-badge {
+            display: inline-block;
+            padding: 2px 9px;
+            border-radius: 20px;
+            font-size: 10.5px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-top: 3px;
+        }
+        .role-admin   { background: rgba(74,140,92,0.3); color: var(--green-200); }
+        .role-student { background: rgba(143,188,143,0.2); color: var(--accent); }
+
+        .sidebar-user {
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--sidebar-border);
+        }
+        .sidebar-user .user-name {
+            font-size: 13px;
+            color: rgba(255,255,255,0.75);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sidebar-user .user-email {
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sidebar-nav { flex: 1; padding: 10px 0; overflow-y: auto; }
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 11px 20px;
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            font-size: 13.5px;
+            font-weight: 500;
+            transition: var(--transition);
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            margin: 1px 0;
+        }
+        .sidebar-nav a:hover {
+            background: var(--sidebar-hover);
+            color: #fff;
+        }
+        .sidebar-nav a.active {
+            background: rgba(74,140,92,0.18);
+            color: #fff;
+            border-left-color: var(--primary);
+        }
+        .sidebar-nav a .nav-icon { font-size: 17px; width: 22px; text-align: center; flex-shrink: 0; }
+
+        .sidebar-footer {
+            padding: 14px 20px;
+            border-top: 1px solid var(--sidebar-border);
+        }
+        .sidebar-footer button {
+            width: 100%;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: rgba(255,255,255,0.65);
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-family: inherit;
+            font-weight: 500;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .sidebar-footer button:hover {
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+        }
+
+        /* Topbar + contenido */
+        .main-wrapper {
+            flex: 1;
+            margin-left: 260px;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        .topbar {
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            padding: 12px 28px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 6px rgba(13,31,20,0.06);
+        }
+        .topbar-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+            margin-right: auto;
+        }
+        .topbar-user {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-mid);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .topbar-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--green-500);
+            color: #fff;
+            font-weight: 700;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 28px 32px;
+        }
+
+        /* ═══════════════════════════════
+           BOTÓN MENÚ MÓVIL
+        ═══════════════════════════════ */
+        .mob-menu-btn {
+            display: none;
+            background: var(--sidebar-bg);
+            border: none;
+            color: #fff;
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .mob-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 150;
+        }
+        .mob-overlay.active { display: block; }
+
+        /* ═══════════════════════════════
+           PAGE HEADER
+        ═══════════════════════════════ */
+        .page-header {
+            margin-bottom: 24px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .page-header h2 {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--green-900);
+        }
+        .breadcrumb {
+            font-size: 12.5px;
+            color: var(--text-light);
+            margin-top: 3px;
+        }
+        .breadcrumb a {
+            color: var(--primary);
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .breadcrumb a:hover { text-decoration: underline; }
+
+        /* ═══════════════════════════════
+           CARDS
+        ═══════════════════════════════ */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 22px 24px;
+            margin-bottom: 18px;
+            border: 1px solid var(--border);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .card-header h3 { font-size: 16px; font-weight: 700; color: var(--green-900); }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px 20px;
+            box-shadow: var(--shadow);
+        }
+        .stat-card .stat-icon {
+            font-size: 26px;
+            margin-bottom: 8px;
+        }
+        .stat-card .stat-value {
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--primary);
+            line-height: 1;
+        }
+        .stat-card .stat-label {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 4px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        /* Course grid */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 20px; }
+        .course-card {
+            background: #fff;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            transition: var(--transition);
+            cursor: pointer;
+        }
+        .course-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--green-300);
+        }
+        .course-card .card-img {
+            height: 130px;
+            background: linear-gradient(135deg, var(--green-800) 0%, var(--green-600) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            color: rgba(255,255,255,0.7);
+        }
+        .course-card .card-img img { width:100%; height:100%; object-fit:cover; }
+        .course-card .card-body { padding: 15px 17px; }
+        .course-card .card-body h4 { font-size: 15px; font-weight: 700; margin-bottom: 5px; color: var(--green-900); }
+        .course-card .card-body p {
+            font-size: 13px;
+            color: var(--text-light);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .course-card .card-footer {
+            padding: 10px 17px;
+            border-top: 1px solid var(--green-50);
+            display: flex;
+            gap: 7px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* ═══════════════════════════════
+           TABLA
+        ═══════════════════════════════ */
+        .table-wrap { overflow-x: auto; }
+        table { width:100%; border-collapse:collapse; font-size:13.5px; }
+        th, td { padding: 11px 14px; text-align:left; border-bottom: 1px solid #eef2ef; }
+        th {
+            background: var(--green-50);
+            font-weight: 700;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-mid);
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f9fcfa; }
+
+        /* ═══════════════════════════════
+           BADGES
+        ═══════════════════════════════ */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-green  { background: #e6f9ee; color: #1a7a3a; }
+        .badge-gray   { background: #f0f0f0; color: #666; }
+        .badge-blue   { background: #e6f0ff; color: #1a56db; }
+        .badge-orange { background: #fef3e6; color: #b45309; }
+
+        /* ═══════════════════════════════
+           MODAL
+        ═══════════════════════════════ */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(13,31,20,0.6);
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(3px);
+        }
+        .modal {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            padding: 28px 30px;
+            width: 100%;
+            max-width: 700px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.3);
+        }
+        .modal h3 {
+            margin-bottom: 18px;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--green-900);
+        }
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* ═══════════════════════════════
+           LECCIÓN + QUIZ
+        ═══════════════════════════════ */
+        .lesson-content {
+            padding: 22px 24px;
+            background: #fafcfb;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            line-height: 1.85;
+            font-size: 15px;
+        }
+        .lesson-content img { max-width:100%; border-radius:8px; margin:10px 0; }
+        .lesson-content h1,.lesson-content h2,.lesson-content h3 {
+            color: var(--green-900); margin: 16px 0 8px;
+        }
+
+        .quiz-question {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+        }
+        .quiz-question p { margin-bottom: 10px; font-weight: 600; }
+        .quiz-options { display: flex; gap: 20px; flex-wrap: wrap; }
+        .quiz-options label {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 400;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 2px solid var(--border);
+            transition: var(--transition);
+        }
+        .quiz-options label:has(input:checked) {
+            border-color: var(--primary);
+            background: var(--green-50);
+            color: var(--primary-dark);
+        }
+        .quiz-options input[type=radio] { accent-color: var(--primary); }
+
+        .result-box {
+            background: #f0fdf4;
+            border: 2px solid #27ae60;
+            border-radius: 14px;
+            padding: 28px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .result-box.fail {
+            background: #fef2f2;
+            border-color: #e74c3c;
+        }
+        .result-score {
+            font-size: 52px;
+            font-weight: 700;
+            line-height: 1;
+            margin: 8px 0;
+        }
+
+        /* ═══════════════════════════════
+           EMPTY STATE
+        ═══════════════════════════════ */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-light);
+        }
+        .empty-state .icon { font-size: 56px; margin-bottom: 12px; }
+        .empty-state p { font-size: 15px; }
+
+        /* ═══════════════════════════════
+           UTILIDADES
+        ═══════════════════════════════ */
+        .hidden  { display: none !important; }
+        .flex    { display: flex; }
+        .flex-wrap { flex-wrap: wrap; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .justify-center  { justify-content: center; }
+        .gap-2  { gap: 8px; }
+        .gap-3  { gap: 12px; }
+        .mt-1   { margin-top: 6px; }
+        .mt-2   { margin-top: 14px; }
+        .mb-1   { margin-bottom: 6px; }
+        .mb-2   { margin-bottom: 14px; }
+        .text-right  { text-align: right; }
+        .text-center { text-align: center; }
+        .ml-auto { margin-left: auto; }
+
+        /* ═══════════════════════════════
+           RESPONSIVE  ≤ 768px
+        ═══════════════════════════════ */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                z-index: 300;
+            }
+            .sidebar.open { transform: translateX(0); }
+            .main-wrapper { margin-left: 0; }
+            .main-content { padding: 18px 16px; }
+            .topbar { padding: 10px 16px; }
+            .mob-menu-btn { display: flex; }
+            .grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .modal { padding: 22px 18px; }
+            .page-header { flex-direction: column; align-items: flex-start; }
+        }
+        @media (max-width: 400px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .auth-card { padding: 28px 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Indicador de subida de imagen -->
+<div class="upload-progress" id="uploadProgress">
+    <div class="spinner"></div>
+    <p style="font-size:14px;font-weight:600;color:var(--text);">Subiendo imagen...</p>
+    <p style="font-size:12px;color:var(--text-light);margin-top:4px;">Esto puede tomar unos segundos</p>
+</div>
+
+<!-- ╔══════════════════════════════════╗
+     ║  SECCIÓN AUTH                   ║
+     ╚══════════════════════════════════╝ -->
+<div id="authSection" class="auth-wrap">
+    <div class="auth-card">
+        <div class="auth-logo">
+            <img id="logoAuth" src="logo.png" alt="INASEP" onerror="this.style.display='none';this.parentElement.innerHTML='<div style=\'font-size:48px;font-weight:800;color:#4a8c5c;letter-spacing:2px\'>INASEP</div><div class=\'brand\'>Instituto Nacional de Seguridad Privada</div>'">
+            <div class="brand">Instituto Nacional de Seguridad Privada</div>
+        </div>
+
+        <div id="alertAuth" class="alert"></div>
+
+        <div id="loginForm">
+            <h2>Iniciar Sesión</h2>
+            <div class="form-group">
+                <label>Correo electrónico</label>
+                <input type="email" id="loginEmail" placeholder="correo@ejemplo.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+            </div>
+            <button class="btn btn-primary btn-primary-full" onclick="login()">Ingresar</button>
+            <p class="auth-toggle" style="margin-top:8px"><a onclick="resetPassword()" style="font-size:12px;color:var(--text-light)">¿Olvidaste tu contraseña?</a></p>
+            <p class="auth-toggle">¿No tienes cuenta? <a onclick="showRegister()">Regístrate como alumno</a></p>
+        </div>
+
+        <div id="registerForm" class="hidden">
+            <h2>Crear Cuenta</h2>
+            <div class="form-group">
+                <label>Nombre completo</label>
+                <input type="text" id="regName" placeholder="Tu nombre completo">
+            </div>
+            <div class="form-group">
+                <label>Correo electrónico</label>
+                <input type="email" id="regEmail" placeholder="correo@ejemplo.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" id="regPassword" placeholder="Mínimo 6 caracteres">
+            </div>
+            <button class="btn btn-primary btn-primary-full" onclick="register()">Crear Cuenta</button>
+            <p class="auth-toggle">¿Ya tienes cuenta? <a onclick="showLogin()">Inicia sesión</a></p>
+        </div>
+    </div>
+</div>
+
+<!-- ╔══════════════════════════════════╗
+     ║  SECCIÓN DASHBOARD              ║
+     ╚══════════════════════════════════╝ -->
+<div id="dashboardSection" class="dashboard hidden">
+
+    <!-- Overlay móvil -->
+    <div class="mob-overlay" id="mobOverlay" onclick="closeSidebar()"></div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-top">
+            <img id="logoSidebar" src="logo.png" alt="INASEP"
+                 onerror="this.style.display='none';this.parentElement.querySelector('.info').style.marginLeft='0'">
+            <div class="info">
+                <h3>INASEP</h3>
+                <span id="sidebarRole" class="role-badge"></span>
+            </div>
+        </div>
+        <div class="sidebar-user">
+            <div id="sidebarName" class="user-name"></div>
+            <div id="sidebarEmail" class="user-email"></div>
+        </div>
+        <nav class="sidebar-nav" id="sidebarNav"></nav>
+        <div class="sidebar-footer">
+            <button onclick="logout()">🚪 Cerrar Sesión</button>
+        </div>
+    </div>
+
+    <!-- Contenido principal -->
+    <div class="main-wrapper">
+        <div class="topbar">
+            <button class="mob-menu-btn" onclick="openSidebar()">☰</button>
+            <span class="topbar-title" id="topbarTitle">Panel</span>
+            <div class="topbar-user">
+                <div class="topbar-avatar" id="topbarAvatar">?</div>
+                <span id="topbarName"></span>
+            </div>
+        </div>
+        <div class="main-content" id="mainContent">
+            <div class="empty-state"><div class="icon">⏳</div><p>Cargando...</p></div>
+        </div>
+    </div>
+</div>
+
+<div id="modalContainer"></div>
+
+<script>
+/* ════════════════════════════════════════
+   CONFIGURACIÓN FIREBASE
+   Reemplaza con tus credenciales reales
+════════════════════════════════════════ */
+
+/* ════════════════════════════════════════
+   REGLAS FIRESTORE NECESARIAS (Firebase Console → Firestore → Reglas):
+
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       function isAuth() { return request.auth != null; }
+       function isAdmin() { 
+         return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'; 
+       }
+
+       match /users/{userId} {
+         allow create: if isAuth() && request.auth.uid == userId;
+         allow read: if isAuth() && (request.auth.uid == userId || isAdmin());
+         allow update: if isAuth() && (request.auth.uid == userId || isAdmin());
+         allow delete: if isAdmin();
+       }
+       match /courses/{id} { allow read: if isAuth(); allow create, update, delete: if isAdmin(); }
+       match /lessons/{id} { allow read: if isAuth(); allow create, update, delete: if isAdmin(); }
+       match /quizzes/{id} { allow read: if isAuth(); allow create, update, delete: if isAdmin(); }
+       match /quizResults/{id} { 
+         allow create: if isAuth(); 
+         allow read: if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+         allow update, delete: if false; 
+       }
+       match /quizExtraAttempts/{id} {
+         allow create: if isAdmin();
+         allow read: if isAuth() && (resource.data.userId == request.auth.uid || isAdmin());
+         allow update, delete: if isAdmin();
+       }
+     }
+   }
+════════════════════════════════════════ */
+
+     const firebaseConfig = {
+  apiKey: "AIzaSyDnzXP59rK49bmKbDeYX8oUtobVaKyI2A4",
+  authDomain: "mi-lms-563bf.firebaseapp.com",
+  projectId: "mi-lms-563bf",
+  storageBucket: "mi-lms-563bf.firebasestorage.app",
+  messagingSenderId: "303910884065",
+  appId: "1:303910884065:web:5f2fe854e17fd25ed21da0"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// Habilitar persistencia offline
+db.enablePersistence({ synchronizeTabs: true })
+    .then(() => console.log('Persistencia offline activada'))
+    .catch(err => {
+        if (err.code === 'failed-precondition') {
+            console.warn('Persistencia: múltiples pestañas abiertas');
+        } else if (err.code === 'unimplemented') {
+            console.warn('Navegador no soporta persistencia offline');
+        }
+    });
+
+/* ════════════════════════════════════════
+   ESTADO GLOBAL
+════════════════════════════════════════ */
+let currentUser  = null;
+let currentRole  = null;
+let currentRoute = '';
+
+/* ════════════════════════════════════════
+   AUTH STATE OBSERVER
+════════════════════════════════════════ */
+auth.onAuthStateChanged(async (user) => {
+    if (user) {
+        currentUser = user;
+        try {
+            const userDoc = await db.collection('users').doc(user.uid).get();
+            if (userDoc.exists) {
+                currentRole = userDoc.data().role;
+            } else {
+                currentRole = 'student';
+                await db.collection('users').doc(user.uid).set({
+                    uid: user.uid,
+                    email: user.email,
+                    name: user.displayName || user.email.split('@')[0],
+                    role: 'student',
+                    enrolledCourses: [],
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        } catch(err) {
+            console.error('Error al cargar usuario:', err);
+            currentRole = 'student';
+        }
+        showDashboard();
+    } else {
+        currentUser = null;
+        currentRole = null;
+        showAuth();
+    }
+});
+
+/* ════════════════════════════════════════
+   FUNCIONES AUTH
+════════════════════════════════════════ */
+function showAuth() {
+    document.getElementById('authSection').classList.remove('hidden');
+    document.getElementById('dashboardSection').classList.add('hidden');
+    showLogin();
+}
+function showLogin() {
+    document.getElementById('loginForm').classList.remove('hidden');
+    document.getElementById('registerForm').classList.add('hidden');
+    document.getElementById('alertAuth').style.display = 'none';
+}
+function showRegister() {
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('registerForm').classList.remove('hidden');
+    document.getElementById('alertAuth').style.display = 'none';
+}
+function showAlert(msg, type='error') {
+    const el = document.getElementById('alertAuth');
+    el.textContent = msg;
+    el.className = 'alert alert-' + type;
+    el.style.display = 'block';
+    setTimeout(() => el.style.display = 'none', 5000);
+}
+async function login() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pass  = document.getElementById('loginPassword').value;
+    if (!email || !pass) return showAlert('Completa todos los campos.');
+    try {
+        await auth.signInWithEmailAndPassword(email, pass);
+    } catch(err) {
+        showAlert('Error: ' + traducirError(err.code));
+    }
+}
+async function register() {
+    const name  = document.getElementById('regName').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const pass  = document.getElementById('regPassword').value;
+    if (!name || !email || !pass) return showAlert('Completa todos los campos.');
+    if (pass.length < 6) return showAlert('La contraseña debe tener al menos 6 caracteres.');
+    try {
+        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+        await db.collection('users').doc(cred.user.uid).set({
+            uid: cred.user.uid, email, name,
+            role: 'student', enrolledCourses: [],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        await cred.user.updateProfile({ displayName: name });
+    } catch(err) {
+        showAlert('Error: ' + traducirError(err.code));
+    }
+}
+async function logout() {
+    await auth.signOut();
+    currentUser = null; currentRole = null;
+    closeModal();
+    window.location.hash = '';
+    showAuth();
+}
+function traducirError(code) {
+    const m = {
+        'auth/email-already-in-use': 'Este correo ya está registrado.',
+        'auth/invalid-email':        'Correo inválido.',
+        'auth/user-not-found':       'Usuario no encontrado.',
+        'auth/wrong-password':       'Contraseña incorrecta.',
+        'auth/invalid-credential':   'Credenciales inválidas.',
+        'auth/weak-password':        'Contraseña muy débil (mínimo 6 caracteres).',
+        'auth/too-many-requests':    'Demasiados intentos. Espera unos minutos.'
+    };
+    return m[code] || 'Error inesperado.';
+}
+
+async function resetPassword() {
+    const email = document.getElementById('loginEmail').value.trim();
+    if (!email) return showAlert('Ingresa tu correo para recuperar la contraseña.');
+    try {
+        await auth.sendPasswordResetEmail(email);
+        showAlert('📧 Se envió un correo de recuperación. Revisa tu bandeja.', 'success');
+    } catch(err) {
+        showAlert('Error: ' + traducirError(err.code));
+    }
+}
+
+/* ════════════════════════════════════════
+   DASHBOARD
+════════════════════════════════════════ */
+function showDashboard() {
+    document.getElementById('authSection').classList.add('hidden');
+    document.getElementById('dashboardSection').classList.remove('hidden');
+    updateSidebar();
+    // Mostrar mensaje de bienvenida
+    showWelcomeToast();
+    handleRoute();
+}
+
+function showWelcomeToast() {
+    const hour = new Date().getHours();
+    let greeting = 'Buenos días';
+    if (hour >= 12 && hour < 18) greeting = 'Buenas tardes';
+    if (hour >= 18) greeting = 'Buenas noches';
+    const name = currentUser?.displayName || currentUser?.email?.split('@')[0] || 'Usuario';
+    toast(`${greeting}, ${name}. Bienvenido a INASEP.`, 'success');
+}
+
+/* ════════════════════════════════════════
+   PÁGINA DE BIENVENIDA EDITABLE
+════════════════════════════════════════ */
+async function renderWelcomePage(container) {
+    // Obtener configuración de bienvenida desde Firestore
+    let welcomeConfig = {
+        title: 'Bienvenido a INASEP',
+        subtitle: 'Plataforma de Formación Profesional',
+        content: '<p>Bienvenido a la plataforma de formación del <strong>Instituto Nacional de Seguridad Privada</strong>. Aquí encontrarás todos tus cursos, lecciones y exámenes.</p>',
+        adminOnly: false
+    };
+
+    try {
+        const configDoc = await db.collection('config').doc('welcome').get();
+        if (configDoc.exists) {
+            welcomeConfig = { ...welcomeConfig, ...configDoc.data() };
+        }
+    } catch(e) {}
+
+    const isAdmin = currentRole === 'admin';
+
+    container.innerHTML = `
+        <div class="page-header">
+            <div>
+                <h2>🏠 ${escHtml(welcomeConfig.title)}</h2>
+                <p class="breadcrumb">${escHtml(welcomeConfig.subtitle)}</p>
+            </div>
+            ${isAdmin ? `<button class="btn btn-primary btn-sm" onclick="editWelcomePage()">✏️ Editar Página</button>` : ''}
+        </div>
+        <div class="card" style="max-width:900px">
+            <div class="lesson-content">${welcomeConfig.content || ''}</div>
+        </div>
+        <div class="stats-grid" style="margin-top:24px">
+            <div class="stat-card" style="cursor:pointer" onclick="navigate('${isAdmin ? 'admin/courses' : 'student/courses'}')">
+                <div class="stat-icon">📚</div>
+                <div class="stat-value">${isAdmin ? 'Admin' : 'Ver'}</div>
+                <div class="stat-label">${isAdmin ? 'Gestionar Cursos' : 'Mis Cursos'}</div>
+            </div>
+            <div class="stat-card" style="cursor:pointer" onclick="navigate('${isAdmin ? 'admin/students' : 'student/results'}')">
+                <div class="stat-icon">${isAdmin ? '👥' : '📊'}</div>
+                <div class="stat-value">${isAdmin ? 'Admin' : 'Ver'}</div>
+                <div class="stat-label">${isAdmin ? 'Gestionar Alumnos' : 'Mis Resultados'}</div>
+            </div>
+            ${isAdmin ? `
+            <div class="stat-card" style="cursor:pointer" onclick="navigate('admin/results')">
+                <div class="stat-icon">📊</div>
+                <div class="stat-value">Ver</div>
+                <div class="stat-label">Resultados de Exámenes</div>
+            </div>
+            ` : ''}
+        </div>`;
+}
+
+async function editWelcomePage() {
+    let welcomeConfig = {
+        title: 'Bienvenido a INASEP',
+        subtitle: 'Plataforma de Formación Profesional',
+        content: '<p>Bienvenido a la plataforma de formación del <strong>Instituto Nacional de Seguridad Privada</strong>.</p>'
+    };
+
+    try {
+        const configDoc = await db.collection('config').doc('welcome').get();
+        if (configDoc.exists) welcomeConfig = { ...welcomeConfig, ...configDoc.data() };
+    } catch(e) {}
+
+    openModal(`
+        <h3>✏️ Editar Página de Bienvenida</h3>
+        <div class="form-group">
+            <label>Título</label>
+            <input type="text" id="welcomeTitle" value="${escHtml(welcomeConfig.title)}" placeholder="Título de bienvenida">
+        </div>
+        <div class="form-group">
+            <label>Subtítulo</label>
+            <input type="text" id="welcomeSubtitle" value="${escHtml(welcomeConfig.subtitle)}" placeholder="Subtítulo">
+        </div>
+        <div class="form-group">
+            <label>Contenido</label>
+            <textarea id="welcomeContent" style="min-height:300px;">${escHtml(welcomeConfig.content)}</textarea>
+            <small style="display:block;margin-top:6px;color:var(--text-light);font-size:12px;">
+                💡 Puedes usar formato, tablas, imágenes, listas y pegar desde Word.
+            </small>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveWelcomePage()">💾 Guardar Cambios</button>
+        </div>`);
+
+    setTimeout(() => {
+        initTinyMCE('#welcomeContent', 350);
+    }, 100);
+}
+
+async function saveWelcomePage() {
+    const title = document.getElementById('welcomeTitle').value.trim();
+    const subtitle = document.getElementById('welcomeSubtitle').value.trim();
+    let content = getTinyMCEContent('welcomeContent');
+
+    if (!title) return toast('⚠️ El título es obligatorio.');
+
+    const btn = document.querySelector('[onclick*="saveWelcomePage"]');
+    setLoading(btn, true);
+
+    try {
+        await db.collection('config').doc('welcome').set({
+            title, subtitle, content,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: currentUser.uid
+        });
+        destroyTinyMCE('welcomeContent');
+        closeModal();
+        toast('✅ Página de bienvenida actualizada.', 'success');
+        handleRoute();
+    } catch(err) {
+        if (err.code === 'permission-denied') {
+            toast('❌ Sin permisos. Agrega regla: match /config/{id} { allow read: if isAuth(); allow write: if isAdmin(); }');
+        } else {
+            toast('Error: ' + err.message);
+        }
+        setLoading(btn, false);
+    }
+}
+function updateSidebar() {
+    const nav   = document.getElementById('sidebarNav');
+    const badge = document.getElementById('sidebarRole');
+    const displayName = currentUser?.displayName || currentUser?.email || '';
+    const initials = displayName.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase() || '?';
+
+    document.getElementById('sidebarName').textContent  = displayName;
+    document.getElementById('sidebarEmail').textContent = currentUser?.email || '';
+    document.getElementById('topbarName').textContent   = displayName;
+    document.getElementById('topbarAvatar').textContent = initials;
+
+    if (currentRole === 'admin') {
+        badge.textContent = 'Admin';
+        badge.className   = 'role-badge role-admin';
+        nav.innerHTML = `
+            <a href="#welcome" data-route="welcome">
+                <span class="nav-icon">🏠</span> Inicio
+            </a>
+            <a href="#admin/courses"  data-route="admin/courses">
+                <span class="nav-icon">📁</span> Cursos
+            </a>
+            <a href="#admin/students" data-route="admin/students">
+                <span class="nav-icon">👥</span> Alumnos
+            </a>
+            <a href="#admin/results" data-route="admin/results">
+                <span class="nav-icon">📊</span> Resultados
+            </a>`;
+    } else {
+        badge.textContent = 'Alumno';
+        badge.className   = 'role-badge role-student';
+        nav.innerHTML = `
+            <a href="#welcome" data-route="welcome">
+                <span class="nav-icon">🏠</span> Inicio
+            </a>
+            <a href="#student/courses" data-route="student/courses">
+                <span class="nav-icon">📚</span> Mis Cursos
+            </a>
+            <a href="#student/results" data-route="student/results">
+                <span class="nav-icon">📊</span> Mis Resultados
+            </a>`;
+    }
+}
+
+/* ════════════════════════════════════════
+   SIDEBAR MÓVIL
+════════════════════════════════════════ */
+function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('mobOverlay').classList.add('active');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('mobOverlay').classList.remove('active');
+}
+
+/* ════════════════════════════════════════
+   ROUTER
+════════════════════════════════════════ */
+window.addEventListener('hashchange', handleRoute);
+
+function handleRoute() {
+    const hash = window.location.hash.replace('#', '') ||
+                 (currentRole === 'admin' ? 'admin/courses' : 'student/courses');
+    currentRoute = hash;
+    updateActiveNav(hash);
+    closeModal();
+    closeSidebar();
+    const main = document.getElementById('mainContent');
+
+    // Verificar autenticación antes de renderizar
+    if (!currentUser) {
+        main.innerHTML = `<div class="empty-state"><div class="icon">🔒</div><p>Sesión expirada. Por favor, inicia sesión nuevamente.</p></div>`;
+        return;
+    }
+
+    if (currentRole === 'admin') {
+        if (hash === '' || hash === 'admin' || hash === 'welcome')                renderWelcomePage(main);
+        else if (hash === 'admin/courses')                                        renderAdminCourses(main);
+        else if (hash.match(/^admin\/courses\/([^/]+)$/))                         renderAdminCourseDetail(main, RegExp.$1);
+        else if (hash.match(/^admin\/courses\/([^/]+)\/lessons\/([^/]+)$/))       renderAdminLessonEdit(main, RegExp.$1, RegExp.$2);
+        else if (hash.match(/^admin\/courses\/([^/]+)\/quizzes$/))                renderAdminQuizzes(main, RegExp.$1);
+        else if (hash === 'admin/students')                                       renderAdminStudents(main);
+        else if (hash === 'admin/results')                                        renderAdminResults(main);
+        else main.innerHTML = noAccess();
+    } else if (currentRole === 'student') {
+        if (hash === '' || hash === 'student' || hash === 'welcome')                              renderWelcomePage(main);
+        else if (hash === 'student/courses')                                                      renderStudentCourses(main);
+        else if (hash === 'student/results')                                                      renderStudentResults(main);
+        else if (hash.match(/^student\/courses\/([^/]+)$/))                                       renderStudentCourseDetail(main, RegExp.$1);
+        else if (hash.match(/^student\/courses\/([^/]+)\/lessons\/([^/]+)$/))                     renderStudentLesson(main, RegExp.$1, RegExp.$2);
+        else if (hash.match(/^student\/courses\/([^/]+)\/quiz\/([^/]+)$/))                        renderStudentQuiz(main, RegExp.$1, RegExp.$2);
+        else if (hash.match(/^student\/courses\/([^/]+)\/quiz\/([^/]+)\/result$/))                renderStudentQuizResult(main, RegExp.$1, RegExp.$2);
+        else main.innerHTML = noAccess();
+    } else {
+        main.innerHTML = noAccess();
+    }
+
+    // Título topbar
+    const titles = {
+        '':               '🏠 Bienvenida',
+        'welcome':        '🏠 Bienvenida',
+        'admin':          '🏠 Panel de Administración',
+        'student':        '🏠 Mi Panel',
+        'admin/courses':  '📁 Gestión de Cursos',
+        'admin/students': '👥 Alumnos',
+        'admin/results':  '📊 Resultados de Exámenes',
+        'student/courses':'📚 Mis Cursos',
+        'student/results':'📊 Mis Resultados'
+    };
+    document.getElementById('topbarTitle').textContent = titles[hash] || 'INASEP LMS';
+}
+
+function noAccess() {
+    return `<div class="empty-state"><div class="icon">🔒</div><p>No tienes acceso a esta sección.</p></div>`;
+}
+
+function updateActiveNav(hash) {
+    document.querySelectorAll('#sidebarNav a').forEach(a => {
+        const route = a.getAttribute('data-route');
+        a.classList.toggle('active', route === hash || hash.startsWith(route + '/'));
+    });
+}
+function navigate(route) { window.location.hash = route; }
+
+/* ════════════════════════════════════════
+   MODAL
+════════════════════════════════════════ */
+function openModal(html) {
+    document.getElementById('modalContainer').innerHTML = `
+        <div class="modal-overlay" onclick="handleOverlayClick(event)">
+            <div class="modal">${html}</div>
+        </div>`;
+}
+function handleOverlayClick(e) {
+    if (e.target.classList.contains('modal-overlay')) closeModal();
+}
+function closeModal() {
+    document.getElementById('modalContainer').innerHTML = '';
+}
+
+/* ════════════════════════════════════════
+   ADMIN — CURSOS
+════════════════════════════════════════ */
+async function renderAdminCourses(container) {
+    container.innerHTML = `
+        <div class="page-header">
+            <div><h2>📁 Gestión de Cursos</h2><p class="breadcrumb">Administración</p></div>
+            <button class="btn btn-primary" onclick="showCreateCourseModal()">+ Nuevo Curso</button>
+        </div>
+        <div id="adminCoursesList" class="grid"></div>`;
+
+    let snap;
+    try {
+        // NOTA: orderBy requiere índice. Fallback a get() simple + sort cliente
+        snap = await db.collection('courses').get();
+    } catch(err) {
+        const list = document.getElementById('adminCoursesList');
+        if (err.code === 'permission-denied') {
+            list.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+                <div class="icon">🔒</div>
+                <p><strong>Sin permisos para leer cursos.</strong></p>
+                <p style="font-size:13px;margin-top:8px">Verifica que las reglas de Firestore permitan lectura a usuarios autenticados.</p>
+            </div>`;
+        } else {
+            list.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">⚠️</div><p>Error: ${escHtml(err.message)}</p></div>`;
+        }
+        return;
+    }
+    // Ordenar en cliente por createdAt (desc)
+    const sortedDocs = snap.docs.sort((a, b) => {
+        const aTime = a.data().createdAt?.toMillis?.() || 0;
+        const bTime = b.data().createdAt?.toMillis?.() || 0;
+        return bTime - aTime;
+    });
+    const list = document.getElementById('adminCoursesList');
+
+    // Stats rápidas
+    const total   = snap.size;
+    const activos = snap.docs.filter(d => d.data().active !== false).length;
+
+    if (snap.empty) {
+        list.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+            <div class="icon">📭</div><p>No hay cursos aún. Crea el primero.</p></div>`;
+        return;
+    }
+    list.innerHTML = sortedDocs.map(doc => {
+        const c = doc.data();
+        return `<div class="course-card" onclick="navigate('admin/courses/${doc.id}')">
+            <div class="card-img">${c.imageUrl ? `<img src="${c.imageUrl}" alt="${c.title}">` : '📖'}</div>
+            <div class="card-body">
+                <h4>${c.title}</h4>
+                <p>${c.description || 'Sin descripción'}</p>
+            </div>
+            <div class="card-footer">
+                <span class="badge ${c.active !== false ? 'badge-green' : 'badge-gray'}">
+                    ${c.active !== false ? 'Activo' : 'Inactivo'}
+                </span>
+                <div class="flex gap-2" style="margin-left:auto">
+                    <button class="btn btn-sm btn-outline" onclick="event.stopPropagation();editCourse('${doc.id}')">✏️</button>
+                    <button class="btn btn-sm btn-danger"  onclick="event.stopPropagation();deleteCourse('${doc.id}')">🗑️</button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function showCreateCourseModal(courseData = null) {
+    const isEdit = !!courseData;
+    openModal(`
+        <h3>${isEdit ? 'Editar Curso' : 'Nuevo Curso'}</h3>
+        <div class="form-group">
+            <label>Título del Curso *</label>
+            <input type="text" id="courseTitle" value="${isEdit ? escHtml(courseData.title) : ''}" placeholder="Ej: Seguridad Privada Básica">
+        </div>
+        <div class="form-group">
+            <label>Descripción</label>
+            <textarea id="courseDesc" style="min-height:200px;">${isEdit ? escHtml(courseData.description || '') : ''}</textarea>
+            <small style="display:block;margin-top:6px;color:var(--text-light);font-size:12px;">
+                💡 Puedes usar formato, tablas, imágenes, listas y pegar desde Word.
+            </small>
+        </div>
+        <div class="form-group">
+            <label>URL de imagen de portada (opcional)</label>
+            <input type="text" id="courseImage" value="${isEdit ? escHtml(courseData.imageUrl || '') : ''}" placeholder="https://...">
+        </div>
+        <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:14px;font-weight:600;">
+                <input type="checkbox" id="courseActive" ${isEdit ? (courseData.active !== false ? 'checked' : '') : 'checked'} style="width:auto;">
+                Curso Activo (visible para alumnos)
+            </label>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveCourse('${isEdit ? courseData.id : ''}')">${isEdit ? 'Guardar Cambios' : 'Crear Curso'}</button>
+        </div>`);
+
+    // Inicializar TinyMCE para descripción
+    setTimeout(() => {
+        initTinyMCE('#courseDesc', 200);
+    }, 100);
+}
+
+async function saveCourse(id) {
+    const title       = document.getElementById('courseTitle').value.trim();
+    // Obtener descripción de TinyMCE
+    let description = getTinyMCEContent('courseDesc');
+    const imageUrl    = document.getElementById('courseImage').value.trim();
+    const active      = document.getElementById('courseActive').checked;
+
+    const data = { title, description, imageUrl, active };
+    const errors = validateCourse(data);
+    if (errors.length > 0) return toast('⚠️ ' + errors.join('. '));
+
+    data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    const btn = document.querySelector('[onclick*="saveCourse"]');
+    setLoading(btn, true);
+    try {
+        if (id) {
+            await db.collection('courses').doc(id).update(data);
+        } else {
+            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            await db.collection('courses').add(data);
+        }
+        destroyTinyMCE('courseDesc');
+        closeModal();
+        toast('✅ Curso guardado correctamente.', 'success');
+        handleRoute();
+    } catch(err) {
+        if (err.code === 'permission-denied') {
+            toast('❌ Sin permisos. Verifica las reglas de Firestore en Firebase Console.');
+        } else if (err.code === 'unauthenticated') {
+            toast('❌ Debes iniciar sesión para guardar.');
+        } else {
+            toast('Error al guardar: ' + err.message);
+        }
+    } finally {
+        setLoading(document.querySelector('[onclick*="saveCourse"]'), false);
+    }
+}
+
+async function editCourse(id) {
+    const d = await db.collection('courses').doc(id).get();
+    if (d.exists) showCreateCourseModal({ id, ...d.data() });
+}
+
+
+/* ════════════════════════════════════════
+   VALIDACIONES
+════════════════════════════════════════ */
+function validateCourse(data) {
+    const errors = [];
+    if (!data.title || data.title.trim().length < 3) errors.push('El título debe tener al menos 3 caracteres');
+    if (data.title && data.title.length > 200) errors.push('El título es muy largo (máx 200 caracteres)');
+    if (data.description && data.description.length > 2000) errors.push('La descripción es muy larga (máx 2000 caracteres)');
+    if (data.imageUrl && !data.imageUrl.match(/^https?:\/\/.+/)) errors.push('La URL de imagen debe comenzar con http:// o https://');
+    return errors;
+}
+
+function validateLesson(data) {
+    const errors = [];
+    if (!data.title || data.title.trim().length < 2) errors.push('El título debe tener al menos 2 caracteres');
+    if (data.title && data.title.length > 200) errors.push('El título es muy largo');
+    if (data.order == null || isNaN(data.order) || data.order < 0) errors.push('El orden debe ser un número positivo');
+    return errors;
+}
+
+function validateQuiz(data) {
+    const errors = [];
+    if (!data.title || data.title.trim().length < 3) errors.push('El título del examen es obligatorio (mín 3 caracteres)');
+    if (!data.questions || data.questions.length === 0) errors.push('Debe incluir al menos una pregunta');
+    data.questions.forEach((q, i) => {
+        if (!q.question || q.question.trim().length < 5) errors.push(`Pregunta ${i+1}: debe tener al menos 5 caracteres`);
+    });
+    return errors;
+}
+
+function setLoading(btn, loading = true) {
+    if (!btn) return;
+    if (loading) {
+        btn.dataset.originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '⏳ Guardando...';
+    } else {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.originalText || 'Guardar';
+    }
+}
+
+async function deleteCourse(id) {
+    const doc = await db.collection('courses').doc(id).get();
+    const title = doc.exists ? '"' + doc.data().title + '"' : 'este curso';
+    if (!confirm('¿Eliminar ' + title + ' y TODO su contenido (lecciones y exámenes)? Esta acción no se puede deshacer.')) return;
+    const batch = db.batch();
+    const lSnap = await db.collection('lessons').where('courseId', '==', id).get();
+    lSnap.docs.forEach(d => batch.delete(d.ref));
+    const qSnap = await db.collection('quizzes').where('courseId', '==', id).get();
+    qSnap.docs.forEach(d => batch.delete(d.ref));
+    batch.delete(db.collection('courses').doc(id));
+    await batch.commit();
+    handleRoute();
+}
+
+/* ════════════════════════════════════════
+   ADMIN — DETALLE CURSO (lecciones)
+════════════════════════════════════════ */
+async function renderAdminCourseDetail(container, courseId) {
+    const courseDoc = await db.collection('courses').doc(courseId).get();
+    if (!courseDoc.exists) { container.innerHTML = `<div class="empty-state"><p>Curso no encontrado.</p></div>`; return; }
+    const c = courseDoc.data();
+    container.innerHTML = `
+        <div class="page-header">
+            <div>
+                <h2>📖 ${escHtml(c.title)}</h2>
+                <p class="breadcrumb"><a href="#admin/courses">Cursos</a> / ${escHtml(c.title)}</p>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+                <button class="btn btn-outline btn-sm" onclick="navigate('admin/courses/${courseId}/quizzes')">📝 Exámenes</button>
+                <button class="btn btn-primary btn-sm" onclick="showCreateLessonModal('${courseId}')">+ Nueva Lección</button>
+            </div>
+        </div>
+        <div id="adminLessonsList"></div>`;
+
+    let snap;
+    try {
+        snap = await db.collection('lessons').where('courseId', '==', courseId).get();
+    } catch(err) {
+        const list = document.getElementById('adminLessonsList');
+        if (err.code === 'permission-denied') {
+            list.innerHTML = `<div class="empty-state card"><div class="icon">🔒</div><p>Sin permisos para leer lecciones.</p></div>`;
+        } else {
+            list.innerHTML = `<div class="empty-state card"><div class="icon">⚠️</div><p>Error: ${escHtml(err.message)}</p></div>`;
+        }
+        return;
+    }
+    const sortedLessons = snap.docs.sort((a, b) => (a.data().order || 0) - (b.data().order || 0));
+    const list = document.getElementById('adminLessonsList');
+    if (snap.empty) {
+        list.innerHTML = `<div class="empty-state card"><div class="icon">📝</div><p>Sin lecciones aún.</p></div>`;
+        return;
+    }
+    list.innerHTML = `<div class="card table-wrap">
+        <table>
+            <thead><tr><th>#</th><th>Título de la lección</th><th>Acciones</th></tr></thead>
+            <tbody>
+                ${sortedLessons.map((d, i) => {
+                    const l = d.data();
+                    return `<tr>
+                        <td><span class="badge badge-blue">${l.order ?? i + 1}</span></td>
+                        <td><strong>${escHtml(l.title)}</strong></td>
+                        <td class="flex gap-2">
+                            <button class="btn btn-sm btn-outline" onclick="navigate('admin/courses/${courseId}/lessons/${d.id}')">✏️ Editar</button>
+                            <button class="btn btn-sm btn-danger"  onclick="deleteLesson('${d.id}','${courseId}')">🗑️</button>
+                        </td>
+                    </tr>`;
+                }).join('')}
+            </tbody>
+        </table>
+    </div>`;
+}
+
+function showCreateLessonModal(courseId, lessonData = null) {
+    const isEdit = !!lessonData;
+    openModal(`
+        <h3>${isEdit ? 'Editar Lección' : 'Nueva Lección'}</h3>
+        <div class="form-group">
+            <label>Título *</label>
+            <input type="text" id="lessonTitle" placeholder="Ej: Introducción a la Seguridad">
+        </div>
+        <div class="form-group">
+            <label>Orden</label>
+            <input type="number" id="lessonOrder" min="1" placeholder="1">
+        </div>
+        <div class="form-group">
+            <label>Contenido</label>
+            <textarea id="lessonContent" style="min-height:300px;"></textarea>
+            <small style="display:block;margin-top:6px;color:var(--text-light);font-size:12px;">
+                💡 <strong>Consejo:</strong> Puedes pegar directamente desde Word, PDF o Excel. 
+                También puedes insertar tablas, imágenes por URL, listas, negritas, etc.
+            </small>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveLesson('${isEdit ? lessonData.id : ''}','${courseId}')">${isEdit ? 'Guardar' : 'Crear Lección'}</button>
+        </div>`);
+
+    // Asignar valores por JS para evitar escaping incorrecto de HTML en textarea
+    if (isEdit) {
+        document.getElementById('lessonTitle').value = lessonData.title || '';
+        document.getElementById('lessonOrder').value = lessonData.order != null ? lessonData.order : '';
+        document.getElementById('lessonContent').value = lessonData.content || '';
+    }
+
+    // Inicializar TinyMCE
+    setTimeout(() => {
+        initTinyMCE('#lessonContent', 350);
+    }, 100);
+}
+
+async function saveLesson(lessonId, courseId) {
+    const title   = document.getElementById('lessonTitle').value.trim();
+    const order   = parseInt(document.getElementById('lessonOrder').value);
+    // Obtener contenido de TinyMCE
+    let content = getTinyMCEContent('lessonContent');
+
+    const data = { title, order, content, courseId };
+    const errors = validateLesson(data);
+    if (errors.length > 0) return toast('⚠️ ' + errors.join('. '));
+
+    data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    const btn = document.querySelector('[onclick*="saveLesson("]');
+    setLoading(btn, true);
+    try {
+        if (lessonId) {
+            await db.collection('lessons').doc(lessonId).update(data);
+        } else {
+            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            await db.collection('lessons').add(data);
+        }
+        // Destruir instancia de TinyMCE
+        destroyTinyMCE('lessonContent');
+        closeModal();
+        toast('✅ Lección guardada correctamente.', 'success');
+        navigate('admin/courses/' + courseId);
+    } catch(err) {
+        if (err.code === 'permission-denied') {
+            toast('❌ Sin permisos. Verifica las reglas de Firestore.');
+        } else {
+            toast('Error: ' + err.message);
+        }
+    } finally {
+        setLoading(document.querySelector('[onclick*="saveLesson("]'), false);
+    }
+}
+
+async function deleteLesson(lessonId, courseId) {
+    if (!confirm('¿Eliminar esta lección?')) return;
+    await db.collection('lessons').doc(lessonId).delete();
+    handleRoute();
+}
+
+async function renderAdminLessonEdit(container, courseId, lessonId) {
+    const doc = await db.collection('lessons').doc(lessonId).get();
+    if (!doc.exists) { container.innerHTML = `<div class="empty-state"><p>Lección no encontrada.</p></div>`; return; }
+    const l = doc.data();
+    // Cargar título del curso para breadcrumb
+    let cTitle = courseId;
+    try { const cd = await db.collection('courses').doc(courseId).get(); if (cd.exists) cTitle = cd.data().title; } catch(e){}
+    container.innerHTML = `
+        <div class="page-header">
+            <div>
+                <h2>✏️ Editar Lección</h2>
+                <p class="breadcrumb">
+                    <a href="#admin/courses">Cursos</a> /
+                    <a href="#admin/courses/${courseId}">${escHtml(cTitle)}</a> /
+                    Editar
+                </p>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="navigate('admin/courses/${courseId}')">← Volver</button>
+        </div>
+        <div class="card" style="max-width:900px">
+            <div class="form-group">
+                <label>Título *</label>
+                <input type="text" id="lessonTitle" placeholder="Título de la lección">
+            </div>
+            <div class="form-group">
+                <label>Orden</label>
+                <input type="number" id="lessonOrder" min="1" placeholder="1">
+            </div>
+            <div class="form-group">
+                <label>Contenido</label>
+                <textarea id="lessonContent" style="min-height:350px;"></textarea>
+                <small style="display:block;margin-top:6px;color:var(--text-light);font-size:12px;">
+                    💡 <strong>Consejo:</strong> Puedes pegar directamente desde Word, PDF o Excel. 
+                    También puedes insertar tablas, imágenes por URL, listas, negritas, etc.
+                </small>
+            </div>
+            <div class="flex gap-2 justify-end mt-2">
+                <button class="btn btn-secondary" onclick="navigate('admin/courses/${courseId}')">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveLessonPage('${lessonId}','${courseId}')">💾 Guardar Lección</button>
+            </div>
+        </div>`;
+    // Asignar valores por JS para evitar problemas con escaping en HTML
+    document.getElementById('lessonTitle').value = l.title || '';
+    document.getElementById('lessonOrder').value = l.order != null ? l.order : '';
+    document.getElementById('lessonContent').value = l.content || '';
+
+    // Inicializar TinyMCE
+    setTimeout(() => {
+        initTinyMCE('#lessonContent', 400);
+    }, 100);
+}
+
+async function saveLessonPage(lessonId, courseId) {
+    const title   = document.getElementById('lessonTitle').value.trim();
+    const order   = parseInt(document.getElementById('lessonOrder').value);
+    // Obtener contenido de TinyMCE
+    let content = getTinyMCEContent('lessonContent');
+
+    const data = { title, order, content };
+    const errors = validateLesson(data);
+    if (errors.length > 0) return toast('⚠️ ' + errors.join('. '));
+
+    const btn = document.querySelector('[onclick*="saveLessonPage"]');
+    setLoading(btn, true);
+    try {
+        await db.collection('lessons').doc(lessonId).update({
+            title, order, content, courseId,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        // Destruir instancia de TinyMCE
+        destroyTinyMCE('lessonContent');
+        toast('✅ Lección guardada', 'success');
+        setTimeout(() => navigate('admin/courses/' + courseId), 800);
+    } catch(err) {
+        toast('Error: ' + err.message);
+        if (btn) { setLoading(btn, false); }
+    }
+}
+
+/* ════════════════════════════════════════
+   ADMIN — EXÁMENES
+════════════════════════════════════════ */
+async function renderAdminQuizzes(container, courseId) {
+    const cDoc   = await db.collection('courses').doc(courseId).get();
+    const cTitle = cDoc.exists ? cDoc.data().title : 'Curso';
+    container.innerHTML = `
+        <div class="page-header">
+            <div>
+                <h2>📝 Exámenes</h2>
+                <p class="breadcrumb">
+                    <a href="#admin/courses">Cursos</a> /
+                    <a href="#admin/courses/${courseId}">${escHtml(cTitle)}</a> / Exámenes
+                </p>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="showQuizModal('${courseId}')">+ Nuevo Examen</button>
+        </div>
+        <div id="adminQuizzesList"></div>`;
+
+    let snap;
+    try {
+        snap = await db.collection('quizzes').where('courseId', '==', courseId).get();
+    } catch(err) {
+        const list = document.getElementById('adminQuizzesList');
+        if (err.code === 'permission-denied') {
+            list.innerHTML = `<div class="empty-state card"><div class="icon">🔒</div><p>Sin permisos para leer exámenes.</p></div>`;
+        } else {
+            list.innerHTML = `<div class="empty-state card"><div class="icon">⚠️</div><p>Error: ${escHtml(err.message)}</p></div>`;
+        }
+        return;
+    }
+    const sortedQuizzes = snap.docs.sort((a, b) => {
+        const aTime = a.data().createdAt?.toMillis?.() || 0;
+        const bTime = b.data().createdAt?.toMillis?.() || 0;
+        return bTime - aTime;
+    });
+    const list = document.getElementById('adminQuizzesList');
+    if (snap.empty) {
+        list.innerHTML = `<div class="empty-state card"><div class="icon">📝</div><p>Sin exámenes aún.</p></div>`;
+        return;
+    }
+    list.innerHTML = sortedQuizzes.map(d => {
+        const q = d.data();
+        return `<div class="card flex justify-between items-center flex-wrap gap-2">
+            <div>
+                <strong>${escHtml(q.title)}</strong>
+                <span class="badge badge-blue ml-2" style="margin-left:8px">${q.questions?.length || 0} preguntas</span>
+            </div>
+            <div class="flex gap-2">
+                <button class="btn btn-sm btn-outline" onclick="editQuiz('${d.id}','${courseId}')">✏️ Editar</button>
+                <button class="btn btn-sm btn-danger"  onclick="deleteQuiz('${d.id}','${courseId}')">🗑️</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function showQuizModal(courseId, quizData = null) {
+    const isEdit    = !!quizData;
+    const questions = isEdit ? (quizData.questions || []) : [{ question: '', correctAnswer: true }];
+    const qHtml     = questions.map((q, i) => quizQuestionHtml(q, i, questions.length)).join('');
+    openModal(`
+        <h3>${isEdit ? 'Editar Examen' : 'Nuevo Examen'}</h3>
+        <div class="form-group">
+            <label>Título del Examen *</label>
+            <input type="text" id="quizTitle" value="${isEdit ? escHtml(quizData.title) : ''}" placeholder="Ej: Evaluación Módulo 1">
+        </div>
+        <div id="quizQuestionsContainer">${qHtml}</div>
+        <button class="btn btn-sm btn-outline mb-2" style="margin-bottom:12px" onclick="addQuizQuestion()">+ Agregar Pregunta</button>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveQuiz('${isEdit ? quizData.id : ''}','${courseId}')">${isEdit ? 'Guardar' : 'Crear Examen'}</button>
+        </div>`);
+}
+
+function quizQuestionHtml(q, i, total) {
+    return `<div class="quiz-question" style="background:#f9fcfa;margin-bottom:8px;">
+        <div class="flex justify-between items-center mb-1">
+            <strong style="font-size:13px;">Pregunta ${i + 1}</strong>
+            <button class="btn btn-sm btn-danger" onclick="removeQuizQuestion(this)" ${total <= 1 ? 'disabled' : ''}>✕</button>
+        </div>
+        <input type="text" class="quiz-q-text" value="${escHtml(q.question || '')}" placeholder="Escribe la pregunta..." style="margin-bottom:8px;width:100%;padding:8px 10px;border:2px solid var(--border);border-radius:6px;font-family:inherit;">
+        <div class="quiz-options">
+            <label><input type="radio" name="q${i}" value="true"  ${q.correctAnswer === true  ? 'checked' : ''}> Verdadero</label>
+            <label><input type="radio" name="q${i}" value="false" ${q.correctAnswer === false ? 'checked' : ''}> Falso</label>
+        </div>
+    </div>`;
+}
+
+function addQuizQuestion() {
+    const container = document.getElementById('quizQuestionsContainer');
+    const idx       = container.querySelectorAll('.quiz-question').length;
+    const div       = document.createElement('div');
+    div.innerHTML   = quizQuestionHtml({ question: '', correctAnswer: true }, idx, idx + 1);
+    container.appendChild(div.firstElementChild);
+    // Actualizar botones de eliminar (habilitar si hay más de 1)
+    const allBtns = container.querySelectorAll('.quiz-question .btn-danger');
+    allBtns.forEach(b => b.disabled = false);
+}
+
+function removeQuizQuestion(btn) {
+    const c = document.getElementById('quizQuestionsContainer');
+    if (c.querySelectorAll('.quiz-question').length <= 1) return;
+    btn.closest('.quiz-question').remove();
+}
+
+async function saveQuiz(quizId, courseId) {
+    const titleEl = document.getElementById('quizTitle');
+    if (!titleEl) return toast('⚠️ No se encontró el formulario.');
+    const title = titleEl.value.trim();
+
+    const container = document.getElementById('quizQuestionsContainer');
+    const questionDivs = container ? container.querySelectorAll('.quiz-question') : [];
+    const questions = [];
+    questionDivs.forEach((div, idx) => {
+        const text  = div.querySelector('.quiz-q-text')?.value.trim();
+        if (!text) return;
+        const checkedRadio = div.querySelector('input[type="radio"]:checked');
+        const correctAnswer = checkedRadio ? (checkedRadio.value === 'true') : true;
+        questions.push({ question: text, correctAnswer });
+    });
+
+    const data = { title, questions, courseId };
+    const errors = validateQuiz(data);
+    if (errors.length > 0) return toast('⚠️ ' + errors.join('. '));
+
+    const saveBtn = document.querySelector('[onclick*="saveQuiz"]');
+    setLoading(saveBtn, true);
+    data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+    try {
+        if (quizId) {
+            await db.collection('quizzes').doc(quizId).update(data);
+        } else {
+            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            await db.collection('quizzes').add(data);
+        }
+        closeModal();
+        toast('✅ Examen guardado correctamente.', 'success');
+        navigate('admin/courses/' + courseId + '/quizzes');
+    } catch(err) {
+        if (err.code === 'permission-denied') {
+            toast('❌ Sin permisos. Verifica las reglas de Firestore en Firebase Console.');
+        } else {
+            toast('Error al guardar examen: ' + err.message);
+        }
+    } finally {
+        setLoading(document.querySelector('[onclick*="saveQuiz"]'), false);
+    }
+}
+
+async function editQuiz(qId, cId) {
+    const d = await db.collection('quizzes').doc(qId).get();
+    if (d.exists) showQuizModal(cId, { id: qId, ...d.data() });
+}
+
+async function deleteQuiz(qId, cId) {
+    if (!confirm('¿Eliminar este examen y sus resultados?')) return;
+    const batch  = db.batch();
+    const rSnap  = await db.collection('quizResults').where('quizId', '==', qId).get();
+    rSnap.docs.forEach(d => batch.delete(d.ref));
+    batch.delete(db.collection('quizzes').doc(qId));
+    await batch.commit();
+    handleRoute();
+}
+
+
+
+
+
+/* ════════════════════════════════════════
+   ADMIN — ASIGNAR INTENTO EXTRA
+════════════════════════════════════════ */
+async function showAssignExtraAttemptModal() {
+    // Obtener alumnos y quizzes para los selects
+    const [usersSnap, quizzesSnap, coursesSnap] = await Promise.all([
+        db.collection('users').where('role', '==', 'student').get(),
+        db.collection('quizzes').get(),
+        db.collection('courses').get()
+    ]);
+
+    const usersMap = {};
+    usersSnap.docs.forEach(d => {
+        const u = d.data();
+        usersMap[d.id] = { name: u.name || 'Sin nombre', email: u.email };
+    });
+
+    const quizzesMap = {};
+    quizzesSnap.docs.forEach(d => {
+        const q = d.data();
+        quizzesMap[d.id] = { title: q.title, courseId: q.courseId };
+    });
+
+    const coursesMap = {};
+    coursesSnap.docs.forEach(d => coursesMap[d.id] = d.data().title);
+
+    const userOpts = Object.entries(usersMap).map(([id, u]) => 
+        `<option value="${id}">${escHtml(u.name)} (${escHtml(u.email)})</option>`
+    ).join('');
+
+    const quizOpts = Object.entries(quizzesMap).map(([id, q]) => 
+        `<option value="${id}" data-course="${q.courseId}">${escHtml(coursesMap[q.courseId] || 'Curso')} — ${escHtml(q.title)}</option>`
+    ).join('');
+
+    openModal(`
+        <h3>➕ Asignar Intento Extra</h3>
+        <p style="font-size:13px;color:var(--text-mid);margin-bottom:16px;">
+            Los alumnos tienen <strong>2 intentos automáticos</strong>. Aquí puedes asignar intentos adicionales a quienes los necesiten.
+        </p>
+        <div class="form-group">
+            <label>Alumno *</label>
+            <select id="extraStudent" style="width:100%;padding:11px 13px;border:2px solid var(--border);border-radius:8px;font-family:inherit;">
+                <option value="">Seleccionar alumno...</option>
+                ${userOpts}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Examen *</label>
+            <select id="extraQuiz" style="width:100%;padding:11px 13px;border:2px solid var(--border);border-radius:8px;font-family:inherit;">
+                <option value="">Seleccionar examen...</option>
+                ${quizOpts}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Motivo (opcional)</label>
+            <input type="text" id="extraReason" placeholder="Ej: Solicitud por correo, error técnico, etc." style="width:100%;padding:11px 13px;border:2px solid var(--border);border-radius:8px;font-family:inherit;">
+        </div>
+        <div id="extraAttemptPreview" style="background:var(--green-50);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;color:var(--text-mid);display:none;">
+            <strong>Resumen del alumno:</strong>
+            <div id="extraAttemptInfo"></div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveExtraAttempt()">✅ Asignar Intento Extra</button>
+        </div>
+    `);
+
+    // Agregar listener para mostrar preview cuando se selecciona alumno y quiz
+    setTimeout(() => {
+        const studentSelect = document.getElementById('extraStudent');
+        const quizSelect = document.getElementById('extraQuiz');
+        if (studentSelect) studentSelect.addEventListener('change', updateExtraAttemptPreview);
+        if (quizSelect) quizSelect.addEventListener('change', updateExtraAttemptPreview);
+    }, 100);
+}
+
+async function updateExtraAttemptPreview() {
+    const studentId = document.getElementById('extraStudent')?.value;
+    const quizId = document.getElementById('extraQuiz')?.value;
+    const preview = document.getElementById('extraAttemptPreview');
+    const info = document.getElementById('extraAttemptInfo');
+
+    if (!studentId || !quizId || !preview || !info) return;
+
+    try {
+        const [resultsSnap, extraSnap] = await Promise.all([
+            db.collection('quizResults').where('userId', '==', studentId).where('quizId', '==', quizId).get(),
+            db.collection('quizExtraAttempts').where('userId', '==', studentId).where('quizId', '==', quizId).get()
+        ]);
+
+        const attempts = resultsSnap.size;
+        const extras = extraSnap.size;
+        const totalAllowed = 2 + extras;
+        const remaining = totalAllowed - attempts;
+        const best = resultsSnap.docs.length > 0 
+            ? Math.max(...resultsSnap.docs.map(d => d.data().percentage)) 
+            : null;
+
+        info.innerHTML = `
+            <div style="margin-top:6px;">
+                • Intentos realizados: <strong>${attempts}</strong><br>
+                • Intentos extra asignados: <strong>${extras}</strong><br>
+                • Total permitido: <strong>${totalAllowed}</strong><br>
+                • Intentos restantes: <strong style="color:${remaining > 0 ? '#27ae60' : '#e74c3c'}">${remaining}</strong><br>
+                • Mejor puntaje: <strong>${best !== null ? best + '%' : 'Sin rendir'}</strong>
+            </div>
+        `;
+        preview.style.display = 'block';
+    } catch(e) {
+        info.innerHTML = 'Error cargando información.';
+        preview.style.display = 'block';
+    }
+}
+
+async function saveExtraAttempt() {
+    const studentId = document.getElementById('extraStudent')?.value;
+    const quizId = document.getElementById('extraQuiz')?.value;
+    const reason = document.getElementById('extraReason')?.value?.trim() || '';
+
+    if (!studentId || !quizId) return toast('⚠️ Selecciona alumno y examen.');
+
+    const btn = document.querySelector('[onclick*="saveExtraAttempt"]');
+    setLoading(btn, true);
+
+    try {
+        await db.collection('quizExtraAttempts').add({
+            userId: studentId,
+            quizId: quizId,
+            assignedBy: currentUser.uid,
+            assignedByName: currentUser.displayName || currentUser.email,
+            reason: reason,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        closeModal();
+        toast('✅ Intento extra asignado correctamente.', 'success');
+        handleRoute(); // Recargar panel
+    } catch(err) {
+        if (err.code === 'permission-denied') {
+            toast('❌ Sin permisos. Verifica las reglas de Firestore.');
+        } else {
+            toast('Error: ' + err.message);
+        }
+        setLoading(btn, false);
+    }
+}
+
+/* ════════════════════════════════════════
+   ADMIN — RESULTADOS DE EXÁMENES
+════════════════════════════════════════ */
+async function renderAdminResults(container) {
+    container.innerHTML = `
+        <div class="page-header">
+            <div><h2>📊 Resultados de Exámenes</h2><p class="breadcrumb">Panel de calificaciones</p></div>
+            <div class="flex gap-2">
+                <button class="btn btn-outline btn-sm" onclick="showAssignExtraAttemptModal()">➕ Asignar Intento Extra</button>
+                <button class="btn btn-outline btn-sm" onclick="exportResultsCSV()">📥 Exportar CSV</button>
+            </div>
+        </div>
+        <div id="adminResultsStats"></div>
+        <div id="adminResultsList"></div>`;
+
+    const list = document.getElementById('adminResultsList');
+    const statsDiv = document.getElementById('adminResultsStats');
+
+    try {
+        // Obtener todos los resultados, usuarios, cursos y quizzes
+        const [resultsSnap, usersSnap, coursesSnap, quizzesSnap] = await Promise.all([
+            db.collection('quizResults').get(),
+            db.collection('users').get(),
+            db.collection('courses').get(),
+            db.collection('quizzes').get()
+        ]);
+
+        if (resultsSnap.empty) {
+            list.innerHTML = `<div class="empty-state card"><div class="icon">📊</div><p>Aún no hay resultados de exámenes.</p></div>`;
+            statsDiv.innerHTML = '';
+            return;
+        }
+
+        // Crear mapas para lookups rápidos
+        const usersMap = {};
+        usersSnap.docs.forEach(d => {
+            const u = d.data();
+            usersMap[d.id] = { name: u.name || 'Sin nombre', email: u.email || '—', role: u.role || 'student' };
+        });
+
+        const coursesMap = {};
+        coursesSnap.docs.forEach(d => coursesMap[d.id] = d.data().title);
+
+        const quizzesMap = {};
+        quizzesSnap.docs.forEach(d => {
+            const q = d.data();
+            quizzesMap[d.id] = { title: q.title, courseId: q.courseId };
+        });
+
+        // Ordenar resultados por fecha (más reciente primero)
+        const sortedResults = resultsSnap.docs.sort((a, b) => {
+            const aTime = a.data().createdAt?.toMillis?.() || 0;
+            const bTime = b.data().createdAt?.toMillis?.() || 0;
+            return bTime - aTime;
+        });
+
+        // Estadísticas generales
+        const totalExams = sortedResults.length;
+        const approvedCount = sortedResults.filter(d => d.data().percentage >= 60).length;
+        const avgScore = Math.round(sortedResults.reduce((sum, d) => sum + d.data().percentage, 0) / totalExams);
+
+        // Estadísticas por alumno
+        const studentStats = {};
+        sortedResults.forEach(d => {
+            const r = d.data();
+            const uid = r.userId;
+            if (!studentStats[uid]) {
+                studentStats[uid] = { name: usersMap[uid]?.name || 'Desconocido', attempts: 0, best: 0, approved: 0, total: 0 };
+            }
+            studentStats[uid].attempts++;
+            studentStats[uid].total += r.percentage;
+            if (r.percentage > studentStats[uid].best) studentStats[uid].best = r.percentage;
+            if (r.percentage >= 60) studentStats[uid].approved++;
+        });
+
+        statsDiv.innerHTML = `
+            <div class="stats-grid" style="margin-bottom:24px">
+                <div class="stat-card">
+                    <div class="stat-icon">📝</div>
+                    <div class="stat-value">${totalExams}</div>
+                    <div class="stat-label">Total Exámenes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-value">${approvedCount}</div>
+                    <div class="stat-label">Aprobaciones</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-value">${avgScore}%</div>
+                    <div class="stat-label">Promedio General</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-value">${Object.keys(studentStats).length}</div>
+                    <div class="stat-label">Alumnos Evaluados</div>
+                </div>
+            </div>`;
+
+        // Tabla detallada con filtros
+        let tableHtml = `
+            <div class="card">
+                <div class="card-header" style="flex-direction:column;align-items:flex-start;gap:10px;">
+                    <h3>📋 Detalle por Alumno</h3>
+                    <div class="flex gap-2" style="width:100%">
+                        <input type="text" id="searchStudent" placeholder="🔍 Buscar alumno..." 
+                            style="flex:1;padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-family:inherit;"
+                            onkeyup="filterResultsTable()">
+                        <select id="filterCourse" onchange="filterResultsTable()" 
+                            style="padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-family:inherit;min-width:180px;">
+                            <option value="">Todos los cursos</option>
+                            ${Object.entries(coursesMap).map(([id, title]) => `<option value="${escHtml(title)}">${escHtml(title)}</option>`).join('')}
+                        </select>
+                        <select id="filterStatus" onchange="filterResultsTable()"
+                            style="padding:8px 12px;border:2px solid var(--border);border-radius:8px;font-family:inherit;">
+                            <option value="">Todos</option>
+                            <option value="approved">Aprobados</option>
+                            <option value="failed">No aprobados</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table id="resultsTable">
+                        <thead>
+                            <tr>
+                                <th>Alumno</th>
+                                <th>Correo</th>
+                                <th>Curso</th>
+                                <th>Examen</th>
+                                <th>Intento</th>
+                                <th>Score</th>
+                                <th>%</th>
+                                <th>Estado</th>
+                                <th>Extras</th>
+                                <th>Fecha</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+        // Contar intentos por quiz para cada usuario
+        const attemptCounter = {};
+
+        sortedResults.forEach(d => {
+            const r = d.data();
+            const user = usersMap[r.userId] || { name: 'Desconocido', email: '—' };
+            const quiz = quizzesMap[r.quizId] || {};
+            const courseName = coursesMap[quiz.courseId] || coursesMap[r.courseId] || 'Curso';
+            const quizName = quiz.title || 'Examen';
+            const isApproved = r.percentage >= 60;
+            const date = r.createdAt?.toDate?.() ? r.createdAt.toDate().toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+            // Contar intento
+            const key = r.userId + '_' + r.quizId;
+            if (!attemptCounter[key]) attemptCounter[key] = 0;
+            attemptCounter[key]++;
+            const attemptNum = attemptCounter[key];
+
+            tableHtml += `<tr data-student="${escHtml(user.name.toLowerCase())}" data-course="${escHtml(courseName)}" data-status="${isApproved ? 'approved' : 'failed'}">
+                <td><strong>${escHtml(user.name)}</strong></td>
+                <td style="font-size:12px">${escHtml(user.email)}</td>
+                <td>${escHtml(courseName)}</td>
+                <td>${escHtml(quizName)}</td>
+                <td>#${attemptNum}</td>
+                <td>${r.score}/${r.total}</td>
+                <td><strong style="color:${isApproved ? '#27ae60' : '#e74c3c'}">${r.percentage}%</strong></td>
+                <td><span class="badge ${isApproved ? 'badge-green' : 'badge-orange'}">${isApproved ? '✅ Aprobado' : '❌ No aprobado'}</span></td>
+                <td style="font-size:12px;color:var(--text-light);white-space:nowrap">${date}</td>
+            </tr>`;
+        });
+
+        tableHtml += `</tbody></table></div></div>`;
+        list.innerHTML = tableHtml;
+
+    } catch(err) {
+        list.innerHTML = `<div class="empty-state card"><div class="icon">⚠️</div><p>Error cargando resultados: ${escHtml(err.message)}</p></div>`;
+        statsDiv.innerHTML = '';
+    }
+}
+
+// Filtros para tabla de resultados
+function filterResultsTable() {
+    const search = document.getElementById('searchStudent')?.value.toLowerCase() || '';
+    const course = document.getElementById('filterCourse')?.value || '';
+    const status = document.getElementById('filterStatus')?.value || '';
+
+    document.querySelectorAll('#resultsTable tbody tr').forEach(row => {
+        const studentMatch = row.dataset.student?.includes(search);
+        const courseMatch = !course || row.dataset.course === course;
+        const statusMatch = !status || row.dataset.status === status;
+        row.style.display = (studentMatch && courseMatch && statusMatch) ? '' : 'none';
+    });
+}
+
+// Exportar resultados a CSV
+async function quickAssignExtra(studentId, quizId) {
+    if (!confirm('¿Asignar un intento extra a este alumno para este examen?')) return;
+
+    try {
+        await db.collection('quizExtraAttempts').add({
+            userId: studentId,
+            quizId: quizId,
+            assignedBy: currentUser.uid,
+            assignedByName: currentUser.displayName || currentUser.email,
+            reason: 'Asignado rápido desde panel de resultados',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        toast('✅ Intento extra asignado.', 'success');
+        handleRoute(); // Recargar
+    } catch(err) {
+        if (err.code === 'permission-denied') {
+            toast('❌ Sin permisos. Verifica las reglas de Firestore.');
+        } else {
+            toast('Error: ' + err.message);
+        }
+    }
+}
+
+function exportResultsCSV() {
+    const rows = document.querySelectorAll('#resultsTable tbody tr');
+    if (rows.length === 0) return toast('No hay datos para exportar.');
+
+    let csv = 'Alumno,Correo,Curso,Examen,Intento,Score,Total,Porcentaje,Estado,Extras,Fecha\n';
+    rows.forEach(row => {
+        if (row.style.display === 'none') return;
+        const cells = row.querySelectorAll('td');
+        const values = Array.from(cells).slice(0, -1).map(c => '"' + c.textContent.replace(/"/g, '""').trim() + '"');
+        csv += values.join(',') + '\n';
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'resultados_inasep_' + new Date().toISOString().slice(0,10) + '.csv';
+    link.click();
+    toast('✅ CSV descargado', 'success');
+}
+
+/* ════════════════════════════════════════
+   ADMIN — ALUMNOS
+════════════════════════════════════════ */
+async function renderAdminStudents(container) {
+    container.innerHTML = `
+        <div class="page-header">
+            <div><h2>👥 Alumnos</h2></div>
+            <button class="btn btn-primary btn-sm" onclick="showEnrollModal()">+ Asignar Curso</button>
+        </div>
+        <div id="adminStudentsList"></div>`;
+
+    let usersSnap, coursesSnap;
+    try {
+        [usersSnap, coursesSnap] = await Promise.all([
+            db.collection('users').where('role', '==', 'student').get(),
+            db.collection('courses').get()
+        ]);
+    } catch(err) {
+        const list = document.getElementById('adminStudentsList');
+        if (err.code === 'permission-denied') {
+            list.innerHTML = `<div class="empty-state card"><div class="icon">🔒</div><p>Sin permisos para leer alumnos. Verifica las reglas de Firestore.</p></div>`;
+        } else {
+            list.innerHTML = `<div class="empty-state card"><div class="icon">⚠️</div><p>Error: ${escHtml(err.message)}</p></div>`;
+        }
+        return;
+    }
+    // Ordenar en cliente
+    const sortedUsers = usersSnap.docs.sort((a, b) => {
+        const aTime = a.data().createdAt?.toMillis?.() || 0;
+        const bTime = b.data().createdAt?.toMillis?.() || 0;
+        return bTime - aTime;
+    });
+    const cMap = {};
+    coursesSnap.docs.forEach(d => cMap[d.id] = d.data().title);
+
+    const list = document.getElementById('adminStudentsList');
+    if (usersSnap.empty) {
+        list.innerHTML = `<div class="empty-state card"><div class="icon">👤</div><p>Sin alumnos registrados.</p></div>`;
+        return;
+    }
+    list.innerHTML = `<div class="card table-wrap">
+        <table>
+            <thead><tr><th>Nombre</th><th>Correo</th><th>Cursos inscritos</th><th>Acciones</th></tr></thead>
+            <tbody>
+                ${sortedUsers.map(d => {
+                    const u = d.data();
+                    const cursos = (u.enrolledCourses || []).map(cid => cMap[cid] || cid).join(', ') || '—';
+                    return `<tr>
+                        <td><strong>${escHtml(u.name || 'Sin nombre')}</strong></td>
+                        <td>${escHtml(u.email)}</td>
+                        <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(cursos)}</td>
+                        <td>
+                            <div class="flex gap-2">
+                                <button class="btn btn-sm btn-outline" onclick="showEnrollModal('${d.id}')">📋 Cursos</button>
+                                <button class="btn btn-sm btn-danger"  onclick="removeStudent('${d.id}')">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>`;
+                }).join('')}
+            </tbody>
+        </table>
+    </div>`;
+}
+
+async function showEnrollModal(studentId = null) {
+    const coursesSnap = await db.collection('courses').get();
+    const opts = coursesSnap.docs.map(d => `<option value="${d.id}">${escHtml(d.data().title)}</option>`).join('');
+    let extra = '';
+    if (studentId) {
+        const d = await db.collection('users').doc(studentId).get();
+        if (d.exists) {
+            const enrolled = d.data().enrolledCourses || [];
+            const courseNames = await Promise.all(enrolled.map(async cid => {
+                const cd = await db.collection('courses').doc(cid).get();
+                return cd.exists ? cd.data().title : cid;
+            }));
+            extra = `<div class="card" style="background:var(--green-50);margin-bottom:14px;">
+                <p style="font-size:13px;color:var(--text-mid);"><strong>Cursos actuales:</strong> ${courseNames.join(', ') || 'Ninguno'}</p>
+            </div>
+            <div class="flex gap-2 mb-2">
+                <button class="btn btn-success btn-sm" onclick="assignCourse('${studentId}')">✅ Asignar</button>
+                <button class="btn btn-warning btn-sm" onclick="unassignCourse('${studentId}')">❌ Desasignar</button>
+            </div>`;
+        }
+    } else {
+        extra = `<div class="form-group">
+            <label>Correo del alumno</label>
+            <input type="email" id="enrollEmail" placeholder="correo@ejemplo.com">
+        </div>
+        <button class="btn btn-primary" onclick="assignCourseByEmail()">Asignar</button>`;
+    }
+    openModal(`
+        <h3>${studentId ? 'Gestionar Cursos del Alumno' : 'Asignar Curso'}</h3>
+        ${!studentId ? extra : ''}
+        <div class="form-group">
+            <label>Curso</label>
+            <select id="enrollCourse">${opts}</select>
+        </div>
+        ${studentId ? extra : ''}
+        <div class="modal-actions mt-2">
+            <button class="btn btn-secondary" onclick="closeModal()">Cerrar</button>
+        </div>`);
+}
+
+async function assignCourseByEmail() {
+    const email    = document.getElementById('enrollEmail').value.trim().toLowerCase();
+    const courseId = document.getElementById('enrollCourse').value;
+    if (!email || !courseId) return toast('⚠️ Completa todos los campos.');
+    const snap = await db.collection('users').where('email', '==', email).where('role', '==', 'student').get();
+    if (snap.empty) return toast('⚠️ Alumno no encontrado.');
+    const doc = snap.docs[0];
+    if ((doc.data().enrolledCourses || []).includes(courseId)) return toast('El alumno ya está inscrito en ese curso.');
+    await db.collection('users').doc(doc.id).update({
+        enrolledCourses: firebase.firestore.FieldValue.arrayUnion(courseId)
+    });
+    closeModal();
+    handleRoute();
+    toast('✅ Curso asignado correctamente.', 'success');
+}
+
+async function assignCourse(sid) {
+    const cid = document.getElementById('enrollCourse').value;
+    const d   = await db.collection('users').doc(sid).get();
+    if ((d.data().enrolledCourses || []).includes(cid)) return toast('El alumno ya está inscrito.');
+    await db.collection('users').doc(sid).update({
+        enrolledCourses: firebase.firestore.FieldValue.arrayUnion(cid)
+    });
+    closeModal();
+    handleRoute();
+    toast('✅ Asignado.', 'success');
+}
+
+async function unassignCourse(sid) {
+    const cid = document.getElementById('enrollCourse').value;
+    await db.collection('users').doc(sid).update({
+        enrolledCourses: firebase.firestore.FieldValue.arrayRemove(cid)
+    });
+    closeModal();
+    handleRoute();
+    toast('Desasignado.', 'success');
+}
+
+async function removeStudent(sid) {
+    if (!confirm('¿Eliminar este alumno? Esta acción no se puede deshacer.')) return;
+    await db.collection('users').doc(sid).delete();
+    handleRoute();
+}
+
+
+
+/* ════════════════════════════════════════
+   ESTUDIANTE — MIS RESULTADOS (HISTORIAL)
+════════════════════════════════════════ */
+async function renderStudentResults(container) {
+    container.innerHTML = `
+        <div class="page-header">
+            <h2>📊 Mis Resultados</h2>
+            <p class="breadcrumb">Historial de exámenes rendidos</p>
+        </div>
+        <div id="studentResultsList"></div>`;
+
+    const list = document.getElementById('studentResultsList');
+
+    try {
+        // Obtener todos los resultados del usuario
+        const resultsSnap = await db.collection('quizResults')
+            .where('userId', '==', currentUser.uid)
+            .get();
+
+        if (resultsSnap.empty) {
+            list.innerHTML = `<div class="empty-state card">
+                <div class="icon">📝</div>
+                <p>Aún no has rendido ningún examen.</p>
+                <p style="font-size:13px;color:var(--text-light);margin-top:8px">Ve a "Mis Cursos" y selecciona un curso para comenzar.</p>
+            </div>`;
+            return;
+        }
+
+        // Obtener info de cursos y quizzes para mostrar nombres
+        const [coursesSnap, quizzesSnap] = await Promise.all([
+            db.collection('courses').get(),
+            db.collection('quizzes').get()
+        ]);
+
+        const coursesMap = {};
+        coursesSnap.docs.forEach(d => coursesMap[d.id] = d.data().title);
+
+        const quizzesMap = {};
+        quizzesSnap.docs.forEach(d => quizzesMap[d.id] = { title: d.data().title, courseId: d.data().courseId });
+
+        // Ordenar por fecha (más reciente primero)
+        const sortedResults = resultsSnap.docs.sort((a, b) => {
+            const aTime = a.data().createdAt?.toMillis?.() || 0;
+            const bTime = b.data().createdAt?.toMillis?.() || 0;
+            return bTime - aTime;
+        });
+
+        // Agrupar por quiz para mostrar mejor intento y cantidad de intentos
+        const quizStats = {};
+        sortedResults.forEach(d => {
+            const r = d.data();
+            if (!quizStats[r.quizId]) {
+                quizStats[r.quizId] = { attempts: [], best: null, courseId: r.courseId };
+            }
+            quizStats[r.quizId].attempts.push({ ...r, id: d.id });
+            if (!quizStats[r.quizId].best || r.percentage > quizStats[r.quizId].best.percentage) {
+                quizStats[r.quizId].best = r;
+            }
+        });
+
+        list.innerHTML = `<div class="stats-grid" style="margin-bottom:24px">
+            <div class="stat-card">
+                <div class="stat-icon">📝</div>
+                <div class="stat-value">${sortedResults.length}</div>
+                <div class="stat-label">Total Exámenes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-value">${Object.values(quizStats).filter(s => s.best.percentage >= 60).length}</div>
+                <div class="stat-label">Aprobados</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📈</div>
+                <div class="stat-value">${Math.round(sortedResults.reduce((sum, d) => sum + d.data().percentage, 0) / sortedResults.length)}%</div>
+                <div class="stat-label">Promedio General</div>
+            </div>
+        </div>`;
+
+        // Tabla detallada
+        let tableHtml = `<div class="card">
+            <div class="card-header"><h3>📋 Detalle de Exámenes</h3></div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Curso</th>
+                            <th>Examen</th>
+                            <th>Intento</th>
+                            <th>Score</th>
+                            <th>%</th>
+                            <th>Estado</th>
+                            <th>Fecha</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+        sortedResults.forEach((d, idx) => {
+            const r = d.data();
+            const quizInfo = quizzesMap[r.quizId] || {};
+            const courseName = coursesMap[quizInfo.courseId] || coursesMap[r.courseId] || 'Curso';
+            const quizName = quizInfo.title || 'Examen';
+            const isApproved = r.percentage >= 60;
+            const date = r.createdAt?.toDate?.() ? r.createdAt.toDate().toLocaleDateString('es-CL') : '—';
+            const attemptNum = quizStats[r.quizId]?.attempts?.findIndex(a => a.id === d.id) + 1 || idx + 1;
+
+            tableHtml += `<tr>
+                <td><strong>${escHtml(courseName)}</strong></td>
+                <td>${escHtml(quizName)}</td>
+                <td>#${attemptNum}</td>
+                <td>${r.score}/${r.total}</td>
+                <td><strong style="color:${isApproved ? '#27ae60' : '#e74c3c'}">${r.percentage}%</strong></td>
+                <td><span class="badge ${isApproved ? 'badge-green' : 'badge-orange'}">${isApproved ? '✅ Aprobado' : '❌ No aprobado'}</span></td>
+                <td style="font-size:12px;color:var(--text-light)">${date}</td>
+                <td>
+                    ${!isApproved ? `<button class="btn btn-sm btn-primary" onclick="navigate('student/courses/${r.courseId}/quiz/${r.quizId}')">🔄 Reintentar</button>` : '<span style="font-size:12px;color:var(--success)">Completado</span>'}
+                </td>
+            </tr>`;
+        });
+
+        tableHtml += `</tbody></table></div></div>`;
+        list.innerHTML += tableHtml;
+
+    } catch(err) {
+        list.innerHTML = `<div class="empty-state card"><div class="icon">⚠️</div><p>Error cargando resultados: ${escHtml(err.message)}</p></div>`;
+    }
+}
+
+/* ════════════════════════════════════════
+   ESTUDIANTE — MIS CURSOS
+════════════════════════════════════════ */
+async function renderStudentCourses(container) {
+    container.innerHTML = `
+        <div class="page-header"><h2>📚 Mis Cursos</h2></div>
+        <div id="studentCoursesList" class="grid"></div>`;
+
+    const userDoc = await db.collection('users').doc(currentUser.uid).get();
+    if (!userDoc.exists) return;
+    const enrolled = userDoc.data().enrolledCourses || [];
+    const list     = document.getElementById('studentCoursesList');
+
+    if (enrolled.length === 0) {
+        list.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+            <div class="icon">🎓</div>
+            <p>Aún no estás inscrito en ningún curso.<br>Contacta a tu administrador.</p>
+        </div>`;
+        return;
+    }
+    // Firestore 'in' limita a 10 elementos y requiere índice. 
+    // Fallback: obtener todos los cursos activos y filtrar en cliente
+    let snap;
+    try {
+        if (enrolled.length <= 10) {
+            snap = await db.collection('courses')
+                .where(firebase.firestore.FieldPath.documentId(), 'in', enrolled).get();
+        } else {
+            throw new Error('too_many_ids');
+        }
+    } catch(err) {
+        // Fallback: obtener todos y filtrar en cliente
+        const allSnap = await db.collection('courses').get();
+        const filtered = allSnap.docs.filter(d => enrolled.includes(d.id));
+        snap = { docs: filtered, empty: filtered.length === 0, size: filtered.length };
+    }
+    list.innerHTML = snap.docs.map(d => {
+        const c = d.data();
+        return `<div class="course-card" onclick="navigate('student/courses/${d.id}')">
+            <div class="card-img">${c.imageUrl ? `<img src="${c.imageUrl}" alt="${c.title}">` : '📖'}</div>
+            <div class="card-body">
+                <h4>${escHtml(c.title)}</h4>
+                <p>${escHtml(c.description || '')}</p>
+            </div>
+            <div class="card-footer">
+                <span class="badge badge-green">Inscrito</span>
+                <span class="btn btn-sm btn-outline" style="margin-left:auto">Ver →</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function renderStudentCourseDetail(container, courseId) {
+    const userDoc = await db.collection('users').doc(currentUser.uid).get();
+    if (!(userDoc.data().enrolledCourses || []).includes(courseId)) {
+        container.innerHTML = `<div class="empty-state"><div class="icon">🔒</div><p>No estás inscrito en este curso.</p></div>`;
+        return;
+    }
+    const cDoc  = await db.collection('courses').doc(courseId).get();
+    if (!cDoc.exists) return;
+    const c     = cDoc.data();
+    let lSnap, qSnap, resultsSnap;
+    try {
+        const [lRes, qRes, rRes] = await Promise.all([
+            db.collection('lessons').where('courseId', '==', courseId).get(),
+            db.collection('quizzes').where('courseId', '==', courseId).get(),
+            db.collection('quizResults').where('userId', '==', currentUser.uid).get()
+        ]);
+        lSnap = lRes;
+        qSnap = qRes;
+        resultsSnap = rRes;
+    } catch(err) {
+        container.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>Error cargando contenido: ${escHtml(err.message)}</p></div>`;
+        return;
+    }
+    // Ordenar lecciones en cliente
+    const sortedStudentLessons = lSnap.docs.sort((a, b) => (a.data().order || 0) - (b.data().order || 0));
+
+    // Obtener mejores resultados por quiz
+    const bestResults = {};
+    resultsSnap.docs.forEach(d => {
+        const r = d.data();
+        if (r.courseId === courseId) {
+            if (!bestResults[r.quizId] || r.percentage > bestResults[r.quizId].percentage) {
+                bestResults[r.quizId] = r;
+            }
+        }
+    });
+
+    container.innerHTML = `
+        <div class="page-header">
+            <div>
+                <h2>📖 ${escHtml(c.title)}</h2>
+                <p class="breadcrumb"><a href="#student/courses">Mis Cursos</a> / ${escHtml(c.title)}</p>
+            </div>
+        </div>
+        ${c.description ? `<div class="card" style="background:var(--green-50);border-color:var(--green-200)"><p>${escHtml(c.description)}</p></div>` : ''}
+        <div id="studentLessonsList"></div>
+        <div id="studentQuizzesList"></div>`;
+
+    const lList = document.getElementById('studentLessonsList');
+    if (lSnap.empty) {
+        lList.innerHTML = `<div class="empty-state card"><p>Este curso aún no tiene lecciones.</p></div>`;
+    } else {
+        lList.innerHTML = `<div class="card">
+            <div class="card-header"><h3>📄 Lecciones</h3></div>
+            ${sortedStudentLessons.map((d, i) => {
+                const l = d.data();
+                return `<div class="flex items-center gap-2" style="padding:11px 0;border-bottom:1px solid var(--border);cursor:pointer;"
+                    onclick="navigate('student/courses/${courseId}/lessons/${d.id}')">
+                    <span class="badge badge-blue">${l.order ?? i + 1}</span>
+                    <strong style="flex:1">${escHtml(l.title)}</strong>
+                    <span style="color:var(--primary);font-weight:600;font-size:13px;">Ver →</span>
+                </div>`;
+            }).join('')}
+        </div>`;
+    }
+
+    const qList = document.getElementById('studentQuizzesList');
+    if (!qSnap.empty) {
+        // Obtener intentos extra para este curso
+        let extraAttemptsMap = {};
+        try {
+            const extraSnap = await db.collection('quizExtraAttempts')
+                .where('userId', '==', currentUser.uid).get();
+            extraSnap.docs.forEach(d => {
+                const e = d.data();
+                if (!extraAttemptsMap[e.quizId]) extraAttemptsMap[e.quizId] = 0;
+                extraAttemptsMap[e.quizId]++;
+            });
+        } catch(e) {}
+
+        qList.innerHTML = `<div class="card">
+            <div class="card-header"><h3>📝 Exámenes</h3></div>
+            ${await Promise.all(qSnap.docs.map(async d => {
+                const q = d.data();
+                const best = bestResults[d.id];
+                const isApproved = best && best.percentage >= 60;
+                const attempts = resultsSnap.docs.filter(r => r.data().quizId === d.id).length;
+                const extra = extraAttemptsMap[d.id] || 0;
+                const totalAllowed = 2 + extra;
+                const remaining = totalAllowed - attempts;
+                const canTake = !isApproved && remaining > 0;
+
+                return `<div class="flex justify-between items-center" style="padding:14px 0;border-bottom:1px solid var(--border);">
+                    <div style="flex:1">
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                            <strong>${escHtml(q.title)}</strong>
+                            <span class="badge badge-orange">${q.questions?.length || 0} preguntas</span>
+                        </div>
+                        ${best ? `
+                            <div style="font-size:13px;color:var(--text-mid)">
+                                <span style="color:${isApproved ? '#27ae60' : '#e74c3c'};font-weight:600;">
+                                    ${isApproved ? '✅ Aprobado' : '❌ No aprobado'} — ${best.percentage}%
+                                </span>
+                                <span style="color:var(--text-light);margin-left:8px;">(${attempts}/${totalAllowed} intento${totalAllowed > 1 ? 's' : ''}${extra > 0 ? ', ' + extra + ' extra' : ''})</span>
+                            </div>
+                        ` : `<div style="font-size:13px;color:var(--text-light)">${remaining > 0 ? remaining + ' intento' + (remaining > 1 ? 's' : '') + ' disponible' + (remaining > 1 ? 's' : '') : 'Sin intentos'}</div>`}
+                    </div>
+                    <div style="margin-left:12px;text-align:right;min-width:120px">
+                        ${isApproved 
+                            ? `<span class="badge badge-green" style="font-size:12px">Completado</span>` 
+                            : canTake
+                                ? `<button class="btn btn-sm ${best ? 'btn-warning' : 'btn-primary'}" onclick="navigate('student/courses/${courseId}/quiz/${d.id}')">${best ? '🔄 Reintentar' : '▶ Iniciar'}</button>`
+                                : `<span class="badge badge-gray" style="font-size:11px">🚫 Sin intentos</span>`
+                        }
+                    </div>
+                </div>`;
+            }))}
+        </div>`;
+    }
+}
+
+async function renderStudentLesson(container, courseId, lessonId) {
+    const userDoc = await db.collection('users').doc(currentUser.uid).get();
+    if (!(userDoc.data().enrolledCourses || []).includes(courseId)) return;
+    const [lDoc, cDoc] = await Promise.all([
+        db.collection('lessons').doc(lessonId).get(),
+        db.collection('courses').doc(courseId).get()
+    ]);
+    if (!lDoc.exists) return;
+    const l = lDoc.data();
+    const cTitle = cDoc.exists ? cDoc.data().title : 'Curso';
+    container.innerHTML = `
+        <div class="page-header">
+            <div>
+                <h2>📄 ${escHtml(l.title)}</h2>
+                <p class="breadcrumb">
+                    <a href="#student/courses">Mis Cursos</a> /
+                    <a href="#student/courses/${courseId}">${escHtml(cTitle)}</a> /
+                    ${escHtml(l.title)}
+                </p>
+            </div>
+        </div>
+        <div class="card">
+            <div class="lesson-content">${l.content || '<p>Esta lección no tiene contenido aún.</p>'}</div>
+        </div>
+        <div class="text-right mt-2">
+            <button class="btn btn-secondary" onclick="navigate('student/courses/${courseId}')">← Volver al Curso</button>
+        </div>`;
+}
+
+async function renderStudentQuiz(container, courseId, quizId) {
+    const userDoc = await db.collection('users').doc(currentUser.uid).get();
+    if (!(userDoc.data().enrolledCourses || []).includes(courseId)) return;
+    const qDoc = await db.collection('quizzes').doc(quizId).get();
+    if (!qDoc.exists) return;
+    const quiz = qDoc.data();
+    container.innerHTML = `
+        <div class="page-header">
+            <h2>📝 ${escHtml(quiz.title)}</h2>
+        </div>
+        <div class="card">
+            <p style="margin-bottom:16px;color:var(--text-mid);">Responde Verdadero o Falso para cada pregunta.</p>
+            ${(quiz.questions || []).map((q, i) => `
+                <div class="quiz-question">
+                    <p>${i + 1}. ${escHtml(q.question)}</p>
+                    <div class="quiz-options">
+                        <label><input type="radio" name="q${i}" value="true"> Verdadero</label>
+                        <label><input type="radio" name="q${i}" value="false"> Falso</label>
+                    </div>
+                </div>`).join('')}
+            <div class="text-center mt-2">
+                <button class="btn btn-primary" onclick="submitQuiz('${quizId}','${courseId}')" style="padding:12px 36px;font-size:15px;">
+                    Enviar Respuestas
+                </button>
+            </div>
+        </div>`;
+}
+
+async function submitQuiz(quizId, courseId) {
+    const qDoc = await db.collection('quizzes').doc(quizId).get();
+    if (!qDoc.exists) return;
+    const quiz      = qDoc.data();
+    const questions = quiz.questions || [];
+
+    // Verificar intentos previos del usuario
+    let attempts = 0;
+    let extraAttempts = 0;
+    try {
+        const prevResults = await db.collection('quizResults')
+            .where('userId', '==', currentUser.uid)
+            .where('quizId', '==', quizId).get();
+        attempts = prevResults.size;
+
+        // Verificar si hay intentos extra asignados por admin
+        const extraSnap = await db.collection('quizExtraAttempts')
+            .where('userId', '==', currentUser.uid)
+            .where('quizId', '==', quizId).get();
+        extraAttempts = extraSnap.size;
+    } catch(e) {
+        console.error('Error verificando intentos:', e);
+    }
+
+    const totalAllowed = 2 + extraAttempts; // 2 automáticos + extras asignados
+    if (attempts >= totalAllowed) {
+        toast('❌ Has agotado tus ' + totalAllowed + ' intentos. Contacta al administrador para solicitar uno adicional.', 'error');
+        setTimeout(() => navigate('student/courses/' + courseId), 2000);
+        return;
+    }
+
+    let correctas   = 0;
+    const respuestas = [];
+    for (let i = 0; i < questions.length; i++) {
+        const rTrue  = document.querySelector(`input[name="q${i}"][value="true"]`);
+        const rFalse = document.querySelector(`input[name="q${i}"][value="false"]`);
+        let uAns = null;
+        if (rTrue?.checked)  uAns = true;
+        if (rFalse?.checked) uAns = false;
+        respuestas.push({ question: questions[i].question, userAnswer: uAns, correctAnswer: questions[i].correctAnswer });
+        if (uAns === questions[i].correctAnswer) correctas++;
+    }
+    const total      = questions.length;
+    const porcentaje = Math.round((correctas / total) * 100);
+    try {
+        const resultRef  = await db.collection('quizResults').add({
+            userId: currentUser.uid, quizId, courseId,
+            score: correctas, total, percentage: porcentaje,
+            respuestas,
+            attemptNumber: attempts + 1,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        navigate(`student/courses/${courseId}/quiz/${quizId}/result?id=${resultRef.id}`);
+    } catch(err) {
+        if (err.code === 'permission-denied') {
+            toast('❌ No se pudo guardar el resultado. Verifica los permisos de Firestore.');
+        } else if (err.code === 'unauthenticated') {
+            toast('❌ Sesión expirada. Vuelve a iniciar sesión.');
+        } else {
+            toast('Error al enviar respuestas: ' + err.message);
+        }
+    }
+}
+
+async function renderStudentQuizResult(container, courseId, quizId) {
+    const params   = new URLSearchParams(window.location.hash.split('?')[1] || '');
+    const resultId = params.get('id');
+    let rData = null;
+    let resultDocId = null;
+
+    if (resultId) {
+        const d = await db.collection('quizResults').doc(resultId).get();
+        if (d.exists) { rData = d.data(); resultDocId = d.id; }
+    }
+    if (!rData) {
+        try {
+            const snap = await db.collection('quizResults')
+                .where('userId', '==', currentUser.uid)
+                .where('quizId', '==', quizId).get();
+            if (!snap.empty) {
+                const sorted = snap.docs.sort((a, b) => {
+                    const aTime = a.data().createdAt?.toMillis?.() || 0;
+                    const bTime = b.data().createdAt?.toMillis?.() || 0;
+                    return bTime - aTime;
+                });
+                rData = sorted[0].data();
+                resultDocId = sorted[0].id;
+            }
+        } catch(err) {
+            console.error('Error cargando resultados:', err);
+        }
+    }
+    if (!rData) { container.innerHTML = `<div class="empty-state"><p>Sin resultado.</p></div>`; return; }
+
+    const qDoc     = await db.collection('quizzes').doc(quizId).get();
+    const quizTitle = qDoc.exists ? qDoc.data().title : 'Examen';
+    const ap        = rData.percentage >= 60;
+
+    // Contar intentos y verificar disponibilidad
+    let attempts = 0;
+    let extraAttempts = 0;
+    let canRetry = false;
+    try {
+        const allAttempts = await db.collection('quizResults')
+            .where('userId', '==', currentUser.uid)
+            .where('quizId', '==', quizId).get();
+        attempts = allAttempts.size;
+
+        const extraSnap = await db.collection('quizExtraAttempts')
+            .where('userId', '==', currentUser.uid)
+            .where('quizId', '==', quizId).get();
+        extraAttempts = extraSnap.size;
+
+        const totalAllowed = 2 + extraAttempts;
+        canRetry = !ap && attempts < totalAllowed;
+    } catch(e) {}
+
+    container.innerHTML = `
+        <div class="page-header">
+            <h2>Resultado: ${escHtml(quizTitle)}</h2>
+            <p class="breadcrumb">Intento #${attempts} de ${2 + extraAttempts}</p>
+        </div>
+        <div class="result-box ${ap ? '' : 'fail'}">
+            <div style="font-size:50px;">${ap ? '🎉' : '😞'}</div>
+            <div class="result-score" style="color:${ap ? '#27ae60' : '#e74c3c'}">${rData.percentage}%</div>
+            <p style="font-size:15px;margin-top:6px">${rData.score} de ${rData.total} correctas</p>
+            <p style="font-size:14px;margin-top:4px;color:${ap ? '#1a7a3a' : '#9b2335'};font-weight:600;">${ap ? '✅ Aprobado' : '❌ No aprobado (mínimo 60%)'}</p>
+            ${!ap ? `
+                <p style="font-size:13px;margin-top:8px;color:var(--text-mid)">
+                    ${canRetry 
+                        ? `Te quedan <strong>${(2 + extraAttempts) - attempts}</strong> intento${(2 + extraAttempts) - attempts > 1 ? 's' : ''} disponible${(2 + extraAttempts) - attempts > 1 ? 's' : ''}.` 
+                        : 'Has agotado tus <strong>2 intentos</strong>. Contacta al administrador para solicitar uno adicional.'}
+                </p>
+            ` : ''}
+        </div>
+
+        ${!ap && canRetry ? `
+        <div class="card" style="background:linear-gradient(135deg, #fef3e6 0%, #fff 100%);border-color:#e67e22;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div style="font-size:32px;">💡</div>
+                <div>
+                    <h4 style="margin:0;font-size:15px;color:#b45309;">Consejo para aprobar</h4>
+                    <p style="margin:4px 0 0;font-size:13px;color:var(--text-mid)">Revisa las lecciones del curso antes de reintentar. Necesitas al menos 60% para aprobar.</p>
+                </div>
+            </div>
+        </div>` : ''}
+
+        <div class="card">
+            <h3 style="margin-bottom:14px;">Detalle de Respuestas</h3>
+            ${(rData.respuestas || []).map((r, i) => `
+                <div class="quiz-question" style="border-left:4px solid ${r.userAnswer === r.correctAnswer ? '#27ae60' : '#e74c3c'};">
+                    <p>${i + 1}. ${escHtml(r.question)}</p>
+                    <p style="font-size:13px;">
+                        Tu respuesta: <strong>${r.userAnswer === null ? 'Sin responder' : r.userAnswer ? 'Verdadero' : 'Falso'}</strong>
+                        &nbsp;·&nbsp;
+                        Correcta: <strong style="color:#27ae60">${r.correctAnswer ? 'Verdadero' : 'Falso'}</strong>
+                        &nbsp;
+                        ${r.userAnswer === r.correctAnswer ? '✅' : '❌'}
+                    </p>
+                </div>`).join('')}
+        </div>
+        <div class="flex gap-2 justify-center mt-2">
+            <button class="btn btn-secondary" onclick="navigate('student/courses/${courseId}')">← Volver al Curso</button>
+            ${!ap && canRetry 
+                ? `<button class="btn btn-warning" onclick="navigate('student/courses/${courseId}/quiz/${quizId}')">🔄 Reintentar Examen</button>` 
+                : !ap 
+                    ? `<button class="btn btn-outline" disabled style="opacity:0.6">🚫 Sin intentos disponibles</button>`
+                    : `<button class="btn btn-primary" onclick="navigate('student/results')">📊 Ver Mis Resultados</button>`
+            }
+        </div>`;
+}
+
+/* ════════════════════════════════════════
+   UTILIDADES
+════════════════════════════════════════ */
+function escHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+}
+
+// Toast de notificación simple
+function toast(msg, type = 'error') {
+    const el = document.createElement('div');
+    el.textContent = msg;
+    Object.assign(el.style, {
+        position: 'fixed', bottom: '24px', right: '24px', zIndex: '9999',
+        padding: '12px 20px', borderRadius: '10px', fontFamily: 'Sora,sans-serif',
+        fontSize: '13.5px', fontWeight: '600', maxWidth: '320px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+        background: type === 'success' ? '#27ae60' : '#c0392b',
+        color: '#fff',
+        animation: 'slideUp 0.25s ease'
+    });
+    const style = document.createElement('style');
+    style.textContent = '@keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}';
+    document.head.appendChild(style);
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+}
+
+/* ════════════════════════════════════════
+   INICIALIZACIÓN DE TinyMCE (Editor profesional)
+════════════════════════════════════════ */
+function initTinyMCE(selector, height) {
+    height = height || 350;
+    if (typeof tinymce === 'undefined') {
+        console.error('TinyMCE no cargado');
+        return;
+    }
+
+    const existing = tinymce.get(selector.replace('#', ''));
+    if (existing) existing.remove();
+
+    tinymce.init({
+        selector: selector,
+        language: 'es',
+        height: height,
+        plugins: [
+            'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+            'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+            'insertdatetime', 'media', 'table', 'help', 'wordcount',
+            'paste', 'emoticons'
+        ],
+        toolbar: [
+            'undo redo | formatselect | bold italic underline strikethrough |',
+            'alignleft aligncenter alignright alignjustify |',
+            'bullist numlist outdent indent | removeformat |',
+            'link image table media charmap emoticons |',
+            'forecolor backcolor | code fullscreen preview | help'
+        ],
+        paste_data_images: true,
+        paste_as_text: false,
+        paste_merge_formats: true,
+        paste_retain_style_properties: 'all',
+        paste_word_valid_elements: 'b,strong,i,em,u,span,p,br,table,tbody,tr,td,th,thead,tfoot,colgroup,col,ul,ol,li,h1,h2,h3,h4,h5,h6,img,a',
+        paste_strip_class_attributes: 'none',
+        valid_elements: '*[*]',
+        extended_valid_elements: '*[*]',
+        valid_children: '+body[style],+div[style]',
+        image_title: true,
+        image_advtab: true,
+        image_description: true,
+        resize: true,
+        statusbar: true,
+        contextmenu: 'link image table',
+        branding: false,
+        promotion: false,
+        setup: function(editor) {
+            editor.ui.registry.addButton('uploadimage', {
+                icon: 'upload',
+                tooltip: 'Subir imagen desde archivo',
+                onAction: function() {
+                    insertImageToTinyMCE(editor.id);
+                }
+            });
+        },
+        images_upload_url: '',
+        images_upload_handler: function(blobInfo, progress) {
+            return new Promise(async (resolve, reject) => {
+                try {
+                    const url = await uploadImageToImgBB(blobInfo.blob());
+                    resolve(url);
+                } catch(err) {
+                    reject('Error subiendo imagen: ' + err.message);
+                }
+            });
+        }
+    });
+}
+
+async function insertImageToTinyMCE(editorId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async function() {
+        const file = input.files[0];
+        if (!file) return;
+        const progress = document.getElementById('uploadProgress');
+        if (progress) progress.classList.add('active');
+        try {
+            const url = await uploadImageToImgBB(file);
+            const editor = tinymce.get(editorId);
+            if (editor) {
+                editor.insertContent('<img src="' + url + '" style="max-width:100%;border-radius:8px;" alt="Imagen" />');
+            }
+            toast('✅ Imagen insertada', 'success');
+        } catch(err) {
+            toast('❌ Error: ' + err.message, 'error');
+        } finally {
+            if (progress) progress.classList.remove('active');
+        }
+    };
+    input.click();
+}
+
+function getTinyMCEContent(editorId) {
+    const editor = tinymce.get(editorId);
+    return editor ? editor.getContent() : (document.getElementById(editorId)?.value || '');
+}
+
+function destroyTinyMCE(editorId) {
+    const editor = tinymce.get(editorId);
+    if (editor) editor.remove();
+}
+
+/* ════════════════════════════════════════
+   SUBIDA DE IMÁGENES A IMGBB (GRATUITO)
+════════════════════════════════════════ */
+async function uploadImageToImgBB(file) {
+    return new Promise((resolve, reject) => {
+        const progress = document.getElementById('uploadProgress');
+        if (progress) progress.classList.add('active');
+
+        const formData = new FormData();
+        formData.append('source', file);
+        formData.append('type', 'file');
+        formData.append('action', 'upload');
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'https://imgbb.com/json', true);
+
+        xhr.onload = function() {
+            if (progress) progress.classList.remove('active');
+            if (xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.image && response.image.url) {
+                        resolve(response.image.url);
+                    } else {
+                        reject(new Error('Respuesta inválida de ImgBB'));
+                    }
+                } catch(e) {
+                    reject(new Error('Error parseando respuesta'));
+                }
+            } else {
+                reject(new Error('Error subiendo imagen: ' + xhr.status));
+            }
+        };
+
+        xhr.onerror = () => {
+            if (progress) progress.classList.remove('active');
+            reject(new Error('Error de red'));
+        };
+        xhr.send(formData);
+    });
+}
+
+// Enter en campos de login
+document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+        const lf = document.getElementById('loginForm');
+        const rf = document.getElementById('registerForm');
+        if (lf && !lf.classList.contains('hidden')) login();
+        if (rf && !rf.classList.contains('hidden')) register();
+    }
+});
+
+if (!window.location.hash) window.location.hash = '';
+</script>
+</body>
+</html>
