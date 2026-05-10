@@ -8,8 +8,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-    <!-- Librerías para PDF y QR -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- Librerias para PDF y QR -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     <style>
         * {
@@ -26,7 +26,6 @@
             max-width: 1400px;
             margin: 0 auto;
         }
-        /* Panel lateral de búsqueda */
         .search-panel {
             background: white;
             border-radius: 20px;
@@ -137,7 +136,14 @@
             font-weight: 600;
             color: #2a5536;
         }
-        /* Vista previa del diploma */
+        .badge-approved {
+            background: #d4edda;
+            color: #155724;
+        }
+        .badge-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
         .preview-area {
             background: #f9fbf9;
             border-radius: 24px;
@@ -264,6 +270,10 @@
             animation: spin 0.8s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .disabled-btn {
+            opacity: 0.5;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -273,15 +283,14 @@
         <div id="authStatus" class="alert" style="display:none"></div>
         <div class="form-row">
             <div class="form-group">
-                <label>Buscar alumno (nombre / RUT / email)</label>
-                <input type="text" id="searchInput" placeholder="Ej: 19.681.751-4 o nombre" autocomplete="off">
+                <label>Filtrar por curso</label>
+                <select id="courseFilter">
+                    <option value="all">📚 Todos los cursos</option>
+                </select>
             </div>
             <div class="form-group">
-                <label>Tipo de documento</label>
-                <select id="docType">
-                    <option value="diploma">🏅 Diploma de Honor</option>
-                    <option value="certificado">📜 Certificado de Aprobación</option>
-                </select>
+                <label>Buscar alumno (nombre / RUT / email)</label>
+                <input type="text" id="searchInput" placeholder="Ej: 19.681.751-4 o nombre" autocomplete="off">
             </div>
             <div><button id="searchBtn">🔍 Buscar</button></div>
         </div>
@@ -289,9 +298,7 @@
     </div>
 
     <div id="previewContainer" class="preview-area hidden">
-        <div class="certificate-template" id="certificateTemplate">
-            <!-- Se llenará dinámicamente -->
-        </div>
+        <div class="certificate-template" id="certificateTemplate"></div>
         <div class="actions">
             <button id="downloadPdfBtn" class="btn-outline">📄 Descargar PDF</button>
         </div>
@@ -299,7 +306,7 @@
 </div>
 
 <script>
-    // ---------- CONFIGURACIÓN FIREBASE (la misma del index.html) ----------
+    // ---------- CONFIGURACIÓN FIREBASE ----------
     const firebaseConfig = {
         apiKey: "AIzaSyDnzXP59rK49bmKbDeYX8oUtobVaKyI2A4",
         authDomain: "mi-lms-563bf.firebaseapp.com",
@@ -317,7 +324,8 @@
     let selectedStudent = null;
     let selectedCourseResult = null;
     let generatedToken = null;
-    let currentQR = null;
+    let coursesMap = new Map(); // id -> title
+    let allStudentsData = [];    // guardar para filtros
 
     // Autenticación obligatoria (solo administradores)
     auth.onAuthStateChanged(async (user) => {
@@ -327,7 +335,7 @@
             if (userDoc.exists && userDoc.data().role === 'admin') {
                 currentAdmin = true;
                 document.getElementById('authStatus').style.display = 'none';
-                loadInitialSuggestions();
+                await loadCoursesAndStudents();
             } else {
                 document.getElementById('authStatus').style.display = 'block';
                 document.getElementById('authStatus').innerHTML = '⛔ Acceso restringido. Solo administradores.';
@@ -340,110 +348,154 @@
         }
     });
 
-    async function loadInitialSuggestions() {
-        // Cargar lista de alumnos recientes para mostrar al inicio
-        const snapshot = await db.collection('users').where('role', '==', 'student').limit(20).get();
-        if (!snapshot.empty) renderAlumnosList(snapshot.docs);
-    }
+    async function loadCoursesAndStudents() {
+        // Cargar cursos para el filtro
+        const coursesSnap = await db.collection('courses').get();
+        coursesMap.clear();
+        const courseSelect = document.getElementById('courseFilter');
+        courseSelect.innerHTML = '<option value="all">📚 Todos los cursos</option>';
+        coursesSnap.docs.forEach(doc => {
+            const title = doc.data().title;
+            coursesMap.set(doc.id, title);
+            courseSelect.innerHTML += `<option value="${doc.id}">📘 ${escapeHtml(title)}</option>`;
+        });
 
-    document.getElementById('searchBtn').addEventListener('click', async () => {
-        const query = document.getElementById('searchInput').value.trim();
-        if (!query) return loadInitialSuggestions();
-        let studentDocs = [];
-        // Buscar por email exacto o RUT o nombre contenido
-        const byEmail = await db.collection('users').where('email', '==', query).where('role', '==', 'student').get();
-        if (!byEmail.empty) studentDocs = byEmail.docs;
-        else {
-            const byRut = await db.collection('users').where('rut', '==', query).where('role', '==', 'student').get();
-            if (!byRut.empty) studentDocs = byRut.docs;
-            else {
-                const byName = await db.collection('users').where('name', '>=', query).where('name', '<=', query + '\uf8ff').where('role', '==', 'student').get();
-                studentDocs = byName.docs;
-            }
-        }
-        if (studentDocs.length === 0) {
-            document.getElementById('resultsList').style.display = 'block';
-            document.getElementById('resultsList').innerHTML = '<div style="padding:20px;text-align:center">No se encontraron alumnos.</div>';
-            return;
-        }
-        renderAlumnosList(studentDocs);
-    });
-
-    async function renderAlumnosList(docs) {
-        const container = document.getElementById('resultsList');
-        container.style.display = 'block';
-        let html = '';
-        for (const doc of docs) {
-            const data = doc.data();
-            // Obtener mejor resultado de cada curso aprobado (>60%)
+        // Cargar todos los alumnos con sus resultados
+        const usersSnap = await db.collection('users').where('role', '==', 'student').get();
+        const students = [];
+        for (const userDoc of usersSnap.docs) {
+            const student = userDoc.data();
+            student.uid = userDoc.id;
+            // Obtener resultados del alumno (todos)
             const resultsSnap = await db.collection('quizResults')
-                .where('userId', '==', doc.id)
-                .where('percentage', '>=', 60)  // solo aprobados
+                .where('userId', '==', student.uid)
                 .get();
-            const coursesApproved = new Map(); // courseId -> best result
+            const coursesResults = new Map(); // courseId -> mejor resultado
             for (const r of resultsSnap.docs) {
                 const rData = r.data();
                 const courseId = rData.courseId;
-                if (!coursesApproved.has(courseId) || coursesApproved.get(courseId).percentage < rData.percentage) {
-                    coursesApproved.set(courseId, { ...rData, resultId: r.id });
+                if (!coursesResults.has(courseId) || coursesResults.get(courseId).percentage < rData.percentage) {
+                    coursesResults.set(courseId, {
+                        percentage: rData.percentage,
+                        score: rData.score,
+                        total: rData.total,
+                        resultId: r.id,
+                        approved: rData.percentage >= 60
+                    });
                 }
             }
-            if (coursesApproved.size === 0) {
-                html += `<div class="alumno-item" data-uid="${doc.id}" data-name="${escapeHtml(data.name)}" data-rut="${data.rut || ''}" data-email="${data.email}" style="opacity:0.6">
-                            <div><strong>${escapeHtml(data.name)}</strong><br><span style="font-size:12px">${data.rut || 'Sin RUT'} | ${data.email}</span></div>
-                            <span class="badge">⚠️ Sin cursos aprobados</span>
+            student.coursesResults = coursesResults;
+            students.push(student);
+        }
+        allStudentsData = students;
+        renderAlumnosList(allStudentsData);
+    }
+
+    document.getElementById('searchBtn').addEventListener('click', () => {
+        applyFilters();
+    });
+    document.getElementById('courseFilter').addEventListener('change', () => {
+        applyFilters();
+    });
+    document.getElementById('searchInput').addEventListener('input', () => {
+        applyFilters();
+    });
+
+    function applyFilters() {
+        const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+        const courseId = document.getElementById('courseFilter').value;
+
+        let filtered = allStudentsData;
+        if (searchTerm) {
+            filtered = filtered.filter(s =>
+                s.name?.toLowerCase().includes(searchTerm) ||
+                s.rut?.toLowerCase().includes(searchTerm) ||
+                s.email?.toLowerCase().includes(searchTerm)
+            );
+        }
+        if (courseId !== 'all') {
+            filtered = filtered.filter(s => s.coursesResults.has(courseId));
+        }
+        renderAlumnosList(filtered);
+    }
+
+    async function renderAlumnosList(students) {
+        const container = document.getElementById('resultsList');
+        if (!students.length) {
+            container.style.display = 'block';
+            container.innerHTML = '<div style="padding:20px;text-align:center">No hay alumnos que coincidan con los filtros.</div>';
+            return;
+        }
+        let html = '';
+        for (const student of students) {
+            const hasCourses = student.coursesResults.size > 0;
+            if (!hasCourses) {
+                html += `<div class="alumno-item" data-uid="${student.uid}" data-name="${escapeHtml(student.name)}" data-rut="${student.rut || ''}" data-email="${student.email}">
+                            <div><strong>${escapeHtml(student.name)}</strong><br><span style="font-size:12px">${student.rut || 'Sin RUT'} | ${student.email}</span></div>
+                            <span class="badge">⚠️ Sin exámenes rendidos</span>
                         </div>`;
-            } else {
-                for (let [courseId, result] of coursesApproved.entries()) {
-                    const courseDoc = await db.collection('courses').doc(courseId).get();
-                    const courseTitle = courseDoc.exists ? courseDoc.data().title : 'Curso';
-                    html += `<div class="alumno-item" data-uid="${doc.id}" data-name="${escapeHtml(data.name)}" data-rut="${data.rut || ''}" data-email="${data.email}" data-courseid="${courseId}" data-coursetitle="${escapeHtml(courseTitle)}" data-percentage="${result.percentage}" data-score="${result.score}/${result.total}" data-date="${result.createdAt?.toDate?.() || new Date()}">
-                                <div><strong>${escapeHtml(data.name)}</strong><br><span style="font-size:12px">${data.rut || 'Sin RUT'} | ${data.email}</span></div>
-                                <div><span class="badge">✅ ${escapeHtml(courseTitle)} - ${result.percentage}%</span></div>
-                            </div>`;
-                }
+                continue;
+            }
+            // Mostrar cada curso con su estado
+            for (let [cId, result] of student.coursesResults.entries()) {
+                const courseTitle = coursesMap.get(cId) || 'Curso sin título';
+                const badgeClass = result.approved ? 'badge-approved' : 'badge-failed';
+                const statusText = result.approved ? `✅ Aprobado (${result.percentage}%)` : `❌ No aprobado (${result.percentage}%)`;
+                html += `<div class="alumno-item" data-uid="${student.uid}" data-name="${escapeHtml(student.name)}" data-rut="${student.rut || ''}" data-email="${student.email}" 
+                            data-courseid="${cId}" data-coursetitle="${escapeHtml(courseTitle)}" 
+                            data-percentage="${result.percentage}" data-score="${result.score}/${result.total}" 
+                            data-approved="${result.approved}">
+                            <div>
+                                <strong>${escapeHtml(student.name)}</strong><br>
+                                <span style="font-size:12px">${student.rut || 'Sin RUT'} | ${student.email}</span>
+                                <div style="font-size:13px; margin-top:4px;"><strong>${escapeHtml(courseTitle)}</strong></div>
+                            </div>
+                            <div>
+                                <span class="badge ${badgeClass}">${statusText}</span>
+                                ${result.approved ? '<span class="badge" style="background:#cfe9ff;">🎓 Diploma disponible</span>' : '<span class="badge" style="background:#f0f0f0;">🚫 No apto para diploma</span>'}
+                            </div>
+                        </div>`;
             }
         }
+        container.style.display = 'block';
         container.innerHTML = html;
-        // adjuntar evento a cada item
+
+        // Eventos click
         document.querySelectorAll('.alumno-item').forEach(el => {
             el.addEventListener('click', async () => {
+                const isApproved = el.dataset.approved === 'true';
+                if (!isApproved) {
+                    alert('Este alumno no ha aprobado este curso (nota menor a 60%). No se puede emitir diploma.');
+                    return;
+                }
                 selectedStudent = {
                     uid: el.dataset.uid,
                     name: el.dataset.name,
                     rut: el.dataset.rut,
                     email: el.dataset.email
                 };
-                if (el.dataset.courseid) {
-                    selectedCourseResult = {
-                        courseId: el.dataset.courseid,
-                        courseTitle: el.dataset.coursetitle,
-                        percentage: parseInt(el.dataset.percentage),
-                        score: el.dataset.score,
-                        date: new Date(el.dataset.date)
-                    };
-                } else {
-                    selectedCourseResult = null;
-                }
-                if (selectedCourseResult) {
-                    await generateDiplomaPreview();
-                } else {
-                    document.getElementById('previewContainer').classList.add('hidden');
-                    alert('Este alumno no registra cursos aprobados con 60% o más.');
-                }
+                selectedCourseResult = {
+                    courseId: el.dataset.courseid,
+                    courseTitle: el.dataset.coursetitle,
+                    percentage: parseInt(el.dataset.percentage),
+                    score: el.dataset.score,
+                    date: new Date()
+                };
+                await generateDiplomaPreview();
             });
         });
     }
 
     async function generateDiplomaPreview() {
-        const docType = document.getElementById('docType').value;
+        const docType = document.getElementById('docType')?.value || 'diploma';
         const student = selectedStudent;
         const course = selectedCourseResult;
         if (!student || !course) return;
 
-        // 1. Crear token único y guardar en Firestore para verificación
-        const token = btoa(`${student.uid}_${course.courseId}_${Date.now()}`).replace(/=/g,'');
+        // Crear token único
+        const token = btoa(`${student.uid}_${course.courseId}_${Date.now()}`).replace(/=/g, '');
         generatedToken = token;
+        const verificationUrl = `${window.location.origin}/verificar.html?id=${token}`;
         const diplomaData = {
             token: token,
             studentId: student.uid,
@@ -456,15 +508,14 @@
             score: course.score,
             issuedAt: firebase.firestore.FieldValue.serverTimestamp(),
             type: docType,
-            verificationUrl: `${window.location.origin}/verificar.html?id=${token}`
+            verificationUrl: verificationUrl
         };
-        // Guardar en colección 'diplomas'
+        // Guardar en Firestore
         await db.collection('diplomas').doc(token).set(diplomaData, { merge: true });
 
-        // 2. Renderizar plantilla HTML
+        // Renderizar plantilla
         const templateDiv = document.getElementById('certificateTemplate');
         const formattedDate = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
-        const logoImg = '<svg width="80" height="80" viewBox="0 0 100 100" style="background:#2e5c3b; border-radius:50%; padding:10px"><text x="50" y="65" font-size="28" text-anchor="middle" fill="white" font-weight="bold">IN</text></svg>';
         let titleHtml = '';
         if (docType === 'diploma') {
             titleHtml = `<div class="certificate-title">DIPLOMA DE HONOR</div>
@@ -473,7 +524,6 @@
             titleHtml = `<div class="certificate-title">CERTIFICADO DE APROBACIÓN</div>
                          <div class="certificate-sub">Formación Profesional</div>`;
         }
-        const qrDiv = `<div id="qrCodeContainer" style="display:flex;justify-content:center;margin:12px auto 0;"></div>`;
         templateDiv.innerHTML = `
             <div class="certificate-border">
                 <div class="certificate-content">
@@ -504,7 +554,7 @@
         const qrContainer = templateDiv.querySelector('#qrCodeArea');
         qrContainer.innerHTML = '';
         new QRCode(qrContainer, {
-            text: diplomaData.verificationUrl,
+            text: verificationUrl,
             width: 100,
             height: 100,
             colorDark: "#000000",
@@ -518,7 +568,7 @@
     document.getElementById('downloadPdfBtn').addEventListener('click', () => {
         const element = document.getElementById('certificateTemplate');
         const opt = {
-            margin:        [0.4, 0.4, 0.4, 0.4], // pulgadas
+            margin:        [0.4, 0.4, 0.4, 0.4],
             filename:     `Diploma_${selectedStudent?.name.replace(/\s/g,'_') || 'alumno'}.pdf`,
             image:        { type: 'jpeg', quality: 0.98 },
             html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
