@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>INASEP — Portal de Diplomas y Certificados</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Cinzel:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<!-- QR Code generator -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+<style>
+:root {
+    --green-900: #0d1f14;
+    --green-800: #142a1b;
+    --green-700: #1e3d28;
+    --green-600: #2a5536;
+    --green-500: #3d7a4e;
+    --green-400: #4a8c5c;
+    --green-300: #68a87a;
+    --green-200: #9fcfab;
+    --green-100: #d4edda;
+    --green-50:  #f0f8f2;
+    --gold: #b8973a;
+    --gold-light: #d4af57;
+    --primary: #4a8c5c;
+    --bg: #f0f8f2;
+    --card-bg: #fff;
+    --text: #1a2e1e;
+    --text-mid: #4a6651;
+    --text-light: #7a9880;
+    --border: #d6e8da;
+    --radius: 10px;
+    --shadow: 0 2px 14px rgba(13,31,20,0.08);
+    --shadow-md: 0 6px 24px rgba(13,31,20,0.13);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+    font-family: 'Sora', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+/* ── AUTH ── */
+.auth-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--green-900);
+    background-image: radial-gradient(ellipse at 20% 50%, rgba(74,140,92,0.18) 0%, transparent 60%);
+    padding: 24px;
+}
+.auth-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+}
+.auth-logo { text-align:center; margin-bottom:28px; }
+.auth-logo .brand { font-size:11px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--text-mid); margin-top:8px; }
+.auth-card h2 { font-size:18px; font-weight:700; color:var(--green-900); margin-bottom:22px; text-align:center; }
+
+/* ── FORM ── */
+.form-group { margin-bottom:15px; }
+.form-group label { display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.8px; color:var(--text-mid); margin-bottom:6px; }
+.form-group input, .form-group select {
+    width:100%; padding:11px 13px;
+    border:2px solid var(--border);
+    border-radius:8px; font-size:14px; font-family:inherit;
+    background:#fafcfb; color:var(--text); transition:.15s;
+}
+.form-group input:focus, .form-group select:focus {
+    outline:none; border-color:var(--primary);
+    box-shadow:0 0 0 3px rgba(74,140,92,.12);
+}
+.alert { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:14px; display:none; }
+.alert-error { background:#fdecea; color:#9b2335; border-left:4px solid #e74c3c; }
+
+/* ── BUTTONS ── */
+.btn {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:10px 20px; border:none; border-radius:8px;
+    font-size:13.5px; font-weight:600; font-family:inherit;
+    cursor:pointer; transition:.15s; white-space:nowrap;
+}
+.btn-primary { background:var(--primary); color:#fff; }
+.btn-primary:hover { background:#3d7a4e; box-shadow:0 4px 16px rgba(74,140,92,.35); transform:translateY(-1px); }
+.btn-full { width:100%; justify-content:center; padding:13px; font-size:15px; }
+.btn-secondary { background:#eef3f0; color:var(--text-mid); }
+.btn-secondary:hover { background:#dde8e1; }
+.btn-outline { background:transparent; border:2px solid var(--border); color:var(--text-mid); }
+.btn-outline:hover { border-color:var(--primary); color:var(--primary); }
+.btn-danger { background:#c0392b; color:#fff; }
+.btn-gold { background:var(--gold); color:#fff; }
+.btn-gold:hover { background:#a07d2e; }
+.btn:disabled { opacity:.5; cursor:not-allowed; transform:none !important; }
+
+/* ── LAYOUT ── */
+.hidden { display:none !important; }
+.dashboard { display:flex; min-height:100vh; }
+
+.sidebar {
+    width:260px; background:var(--green-900);
+    display:flex; flex-direction:column;
+    position:fixed; top:0; left:0; bottom:0; z-index:100;
+}
+.sidebar-top {
+    padding:22px 20px 16px;
+    border-bottom:1px solid rgba(255,255,255,.07);
+    display:flex; align-items:center; gap:12px;
+}
+.sidebar-top .info h3 { color:#fff; font-size:14px; font-weight:700; }
+.sidebar-top .info small { font-size:10px; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:1px; }
+.sidebar-nav { flex:1; padding:10px 0; }
+.sidebar-nav a {
+    display:flex; align-items:center; gap:11px;
+    padding:11px 20px; color:rgba(255,255,255,.6);
+    text-decoration:none; font-size:13.5px; font-weight:500;
+    transition:.15s; cursor:pointer; border-left:3px solid transparent;
+}
+.sidebar-nav a:hover { background:#1e3d28; color:#fff; }
+.sidebar-nav a.active { background:#1e3d28; color:#fff; border-left-color:var(--green-400); }
+.sidebar-bottom { padding:16px 20px; border-top:1px solid rgba(255,255,255,.07); }
+
+.main-content { margin-left:260px; flex:1; padding:32px; }
+.page-header { margin-bottom:28px; }
+.page-header h1 { font-size:22px; font-weight:700; color:var(--green-900); }
+.page-header p { color:var(--text-light); font-size:13.5px; margin-top:4px; }
+
+/* ── CARDS ── */
+.card { background:#fff; border-radius:var(--radius); border:1px solid var(--border); padding:24px; margin-bottom:20px; }
+
+/* ── SEARCH PANEL ── */
+.search-panel { display:grid; grid-template-columns:1fr auto; gap:12px; align-items:end; margin-bottom:20px; }
+.search-results { display:grid; gap:12px; }
+.student-row {
+    background:#fff; border:2px solid var(--border); border-radius:10px;
+    padding:16px 20px; display:flex; align-items:center; gap:16px; cursor:pointer;
+    transition:.15s;
+}
+.student-row:hover { border-color:var(--primary); background:var(--green-50); }
+.student-row.selected { border-color:var(--primary); background:var(--green-50); }
+.student-row .avatar {
+    width:44px; height:44px; border-radius:50%;
+    background:var(--green-100); display:flex; align-items:center; justify-content:center;
+    font-size:18px; font-weight:700; color:var(--green-600); flex-shrink:0;
+}
+.student-row .info h4 { font-size:14px; font-weight:600; color:var(--green-900); }
+.student-row .info small { color:var(--text-light); font-size:12px; }
+.student-row .badge {
+    margin-left:auto; padding:3px 10px; border-radius:20px;
+    font-size:11px; font-weight:600; background:var(--green-100); color:var(--green-700);
+}
+
+/* ── COURSE SELECTOR ── */
+.course-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+.course-card {
+    border:2px solid var(--border); border-radius:10px; padding:16px;
+    cursor:pointer; transition:.15s; background:#fff;
+}
+.course-card:hover { border-color:var(--primary); }
+.course-card.selected { border-color:var(--primary); background:var(--green-50); }
+.course-card h4 { font-size:13px; font-weight:600; color:var(--green-900); margin-bottom:6px; }
+.course-card .meta { font-size:12px; color:var(--text-light); }
+.course-card .score { font-size:22px; font-weight:700; color:var(--primary); margin-top:8px; }
+
+/* ── PREVIEW SECTION ── */
+.doc-tabs { display:flex; gap:8px; margin-bottom:20px; }
+.doc-tab {
+    padding:8px 20px; border-radius:8px; font-size:13px; font-weight:600;
+    border:2px solid var(--border); cursor:pointer; transition:.15s; background:#fff;
+}
+.doc-tab.active { border-color:var(--primary); background:var(--primary); color:#fff; }
+
+/* ── DIPLOMA (A4 horizontal) ── */
+.diploma-wrap {
+    width:297mm; max-width:100%;
+    margin:0 auto 20px;
+    transform-origin:top left;
+}
+.diploma {
+    width:297mm; height:210mm;
+    background:#fff;
+    position:relative; overflow:hidden;
+    font-family:'Cinzel', serif;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+    display:flex; align-items:center; justify-content:center;
+}
+
+/* Franjas verdes arriba/abajo */
+.diploma::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:14mm;
+    background:var(--green-800);
+}
+.diploma::after {
+    content:''; position:absolute; bottom:0; left:0; right:0; height:14mm;
+    background:var(--green-800);
+}
+
+.diploma-inner {
+    position:relative; z-index:2;
+    width:100%; height:100%;
+    display:flex; align-items:center; justify-content:center;
+}
+
+/* Escudo de fondo */
+.diploma-shield-bg {
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    width:160mm; opacity:.06; z-index:0;
+}
+
+.diploma-content {
+    position:relative; z-index:1;
+    text-align:center; padding:16mm 20mm 16mm;
+    width:100%;
+}
+
+.diploma-subtitle {
+    font-size:9pt; letter-spacing:4px; text-transform:uppercase;
+    color:var(--green-700); margin-bottom:6mm; font-family:'Sora',sans-serif; font-weight:500;
+}
+
+.diploma-title {
+    font-size:34pt; font-weight:700; color:var(--green-900);
+    letter-spacing:3px; margin-bottom:5mm; text-transform:uppercase;
+}
+
+.diploma-certifica {
+    font-size:9pt; letter-spacing:3px; text-transform:uppercase;
+    color:var(--text-mid); font-family:'Sora',sans-serif; margin-bottom:4mm;
+}
+
+.diploma-name {
+    font-size:26pt; font-weight:700; color:var(--gold);
+    letter-spacing:2px; text-transform:uppercase; margin-bottom:5mm;
+}
+
+.diploma-body {
+    font-size:10pt; color:var(--text); line-height:1.6;
+    font-family:'Sora',sans-serif; margin-bottom:4mm; max-width:200mm; margin-left:auto; margin-right:auto;
+}
+
+.diploma-date {
+    font-size:9pt; color:var(--text-mid); font-family:'Sora',sans-serif;
+    margin-bottom:8mm;
+}
+
+/* Firma */
+.diploma-footer {
+    display:flex; justify-content:center; align-items:flex-end; gap:20mm;
+    position:absolute; bottom:18mm; left:0; right:0; z-index:2;
+}
+.diploma-firma { text-align:center; }
+.diploma-firma .linea { width:52mm; border-top:1.5px solid var(--green-700); margin-bottom:3px; }
+.diploma-firma .nombre { font-size:8pt; font-weight:600; color:var(--green-900); font-family:'Sora',sans-serif; }
+.diploma-firma .cargo { font-size:7pt; color:var(--text-mid); font-family:'Sora',sans-serif; }
+
+/* Logo posición diploma */
+.diploma-logo-left {
+    position:absolute; top:18mm; left:14mm; z-index:2;
+    display:flex; align-items:center; gap:4mm;
+}
+.diploma-logo-right {
+    position:absolute; top:18mm; right:14mm; z-index:2; text-align:right;
+}
+.diploma-qr {
+    position:absolute; bottom:18mm; right:14mm; z-index:2; text-align:center;
+}
+.diploma-qr canvas { width:20mm !important; height:20mm !important; }
+.diploma-qr small { display:block; font-size:5.5pt; color:var(--text-light); font-family:'Sora',sans-serif; margin-top:1mm; }
+
+/* Sello circular (simulado con CSS) */
+.sello {
+    position:absolute; bottom:16mm; right:42mm; z-index:2;
+    width:28mm; height:28mm; border-radius:50%;
+    border:2.5px solid var(--green-600);
+    display:flex; align-items:center; justify-content:center;
+    opacity:.25;
+}
+.sello-inner {
+    width:22mm; height:22mm; border-radius:50%;
+    border:1.5px solid var(--green-600);
+    display:flex; align-items:center; justify-content:center;
+}
+.sello-text { font-size:4pt; text-align:center; color:var(--green-700); font-family:'Sora',sans-serif; letter-spacing:1px; }
+
+/* ── CERTIFICADO (A4 vertical) ── */
+.cert-wrap { width:210mm; max-width:100%; margin:0 auto 20px; }
+.cert {
+    width:210mm; min-height:297mm;
+    background:#fff; position:relative; overflow:hidden;
+    font-family:'Sora',sans-serif;
+    box-shadow:0 8px 40px rgba(0,0,0,.15);
+}
+
+.cert-top-bar { background:var(--green-800); height:12mm; display:flex; align-items:center; padding:0 14mm; }
+.cert-top-bar span { font-family:'Cinzel',serif; font-size:9pt; color:rgba(255,255,255,.8); letter-spacing:3px; text-transform:uppercase; }
+
+.cert-body { padding:10mm 16mm 14mm; }
+.cert-logo-row { display:flex; align-items:center; gap:4mm; margin-bottom:10mm; }
+.cert-logo-row .brand { font-size:11pt; font-weight:700; color:var(--green-900); font-family:'Cinzel',serif; }
+
+.cert-title-block { margin-bottom:12mm; }
+.cert-title-block h1 {
+    font-family:'Cinzel',serif; font-size:28pt; font-weight:700;
+    color:var(--green-900); line-height:1.1; text-transform:uppercase;
+}
+.cert-title-block h1 span { color:var(--primary); }
+
+.cert-shield-wrap {
+    background:var(--green-50); border:1.5px solid var(--green-100);
+    border-radius:12px; padding:12mm 14mm; margin-bottom:12mm;
+    position:relative; overflow:hidden; text-align:center;
+}
+.cert-shield-bg {
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    width:100mm; opacity:.05;
+}
+
+.cert-certifica {
+    font-size:8pt; letter-spacing:3px; text-transform:uppercase;
+    color:var(--text-mid); margin-bottom:4mm; display:block;
+}
+.cert-name {
+    font-family:'Cinzel',serif; font-size:18pt; font-weight:700;
+    color:var(--gold); text-transform:uppercase; margin-bottom:6mm; display:block;
+}
+.cert-body-text {
+    font-size:10pt; color:var(--text); line-height:1.9;
+    text-align:justify; position:relative; z-index:1;
+}
+.cert-body-text strong { color:var(--green-900); }
+
+.cert-extend {
+    font-size:9pt; color:var(--text-mid); line-height:1.7; margin-top:4mm;
+    text-align:center; font-style:italic; position:relative; z-index:1;
+}
+
+.cert-date-place { font-size:9pt; color:var(--text-mid); margin-bottom:14mm; text-align:center; }
+
+.cert-footer {
+    display:flex; justify-content:space-between; align-items:flex-end;
+    padding:0 6mm; margin-top:8mm;
+}
+.cert-firma { text-align:center; }
+.cert-firma .linea { width:48mm; border-top:1.5px solid var(--green-700); margin-bottom:3px; }
+.cert-firma .nombre { font-size:8pt; font-weight:600; color:var(--green-900); }
+.cert-firma .cargo { font-size:7pt; color:var(--text-mid); }
+
+.cert-bottom-bar { background:var(--green-800); height:10mm; margin-top:12mm; display:flex; align-items:center; justify-content:center; }
+.cert-bottom-bar small { font-size:6pt; color:rgba(255,255,255,.5); letter-spacing:2px; text-transform:uppercase; font-family:'Cinzel',serif; }
+
+.cert-qr { text-align:center; }
+.cert-qr canvas { width:18mm !important; height:18mm !important; }
+.cert-qr small { display:block; font-size:5.5pt; color:var(--text-light); margin-top:1mm; }
+
+/* Logos SVG inline (escudo INASEP simplificado) */
+.inasep-shield-svg { display:block; }
+
+/* ── ACTIONS ── */
+.actions-bar {
+    display:flex; gap:12px; flex-wrap:wrap;
+    background:#fff; padding:16px 20px; border-radius:10px;
+    border:1px solid var(--border); margin-bottom:20px;
+}
+
+/* ── TOAST ── */
+.toast {
+    position:fixed; bottom:24px; right:24px; z-index:9999;
+    padding:12px 20px; border-radius:10px; font-size:13px; font-weight:600;
+    transform:translateY(80px); opacity:0; transition:.25s; pointer-events:none;
+    max-width:320px;
+}
+.toast.show { transform:translateY(0); opacity:1; }
+.toast-success { background:var(--green-800); color:#fff; }
+.toast-error   { background:#c0392b; color:#fff; }
+
+/* ── PRINT ── */
+@media print {
+    body { background:#fff !important; }
+    .no-print { display:none !important; }
+    .diploma-wrap, .cert-wrap { margin:0 !important; }
+    .diploma, .cert { box-shadow:none !important; }
+    @page { margin:0; size: A4; }
+    .print-diploma { size: A4 landscape; }
+}
+
+/* Scale diploma for screen */
+.diploma-scale-wrap {
+    overflow:hidden;
+    max-width:100%;
+}
+</style>
+</head>
+<body>
+
+<!-- ══ SECCIÓN LOGIN ══ -->
+<div id="authSection">
+<div class="auth-wrap">
+<div class="auth-card">
+    <div class="auth-logo">
+        <svg width="64" height="64" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M50 5 L90 20 L90 55 C90 75 70 92 50 97 C30 92 10 75 10 55 L10 20 Z" fill="#142a1b" stroke="#4a8c5c" stroke-width="2"/>
+            <circle cx="50" cy="45" r="22" stroke="#4a8c5c" stroke-width="2" fill="none"/>
+            <path d="M40 35 L50 30 L60 35 L60 55 L50 60 L40 55 Z" fill="#4a8c5c" opacity=".4"/>
+            <text x="50" y="50" text-anchor="middle" font-family="serif" font-size="12" fill="#9fcfab" font-weight="bold">I</text>
+        </svg>
+        <div class="brand">Instituto INASEP SpA — Portal Diplomas</div>
+    </div>
+    <h2>Acceso Administrador</h2>
+    <div class="alert alert-error" id="loginError"></div>
+    <div class="form-group">
+        <label>Correo electrónico</label>
+        <input type="email" id="loginEmail" placeholder="admin@inasep.cl">
+    </div>
+    <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="loginPass" placeholder="••••••••">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="login()">Iniciar sesión</button>
+</div>
+</div>
+</div>
+
+<!-- ══ DASHBOARD ══ -->
+<div id="dashSection" class="hidden">
+<div class="dashboard">
+
+<!-- Sidebar -->
+<aside class="sidebar no-print">
+    <div class="sidebar-top">
+        <svg width="40" height="40" viewBox="0 0 100 100" fill="none">
+            <path d="M50 5 L90 20 L90 55 C90 75 70 92 50 97 C30 92 10 75 10 55 L10 20 Z" fill="#1e3d28" stroke="#4a8c5c" stroke-width="2"/>
+            <circle cx="50" cy="45" r="22" stroke="#4a8c5c" stroke-width="2" fill="none"/>
+            <text x="50" y="50" text-anchor="middle" font-family="serif" font-size="14" fill="#9fcfab" font-weight="bold">I</text>
+        </svg>
+        <div class="info">
+            <h3>INASEP</h3>
+            <small>Portal Diplomas</small>
+        </div>
+    </div>
+    <nav class="sidebar-nav">
+        <a onclick="showSection('buscar')" id="nav-buscar" class="active">
+            🔍 Buscar Alumno
+        </a>
+        <a onclick="showSection('generar')" id="nav-generar">
+            📄 Generar Documentos
+        </a>
+    </nav>
+    <div class="sidebar-bottom">
+        <button class="btn btn-outline btn-full" onclick="logout()" style="color:rgba(255,255,255,.5);border-color:rgba(255,255,255,.15);">
+            ↩ Cerrar sesión
+        </button>
+    </div>
+</aside>
+
+<!-- Main -->
+<main class="main-content" id="mainContent">
+
+<!-- ── SECCIÓN BUSCAR ── -->
+<div id="secBuscar">
+    <div class="page-header">
+        <h1>🔍 Buscar Alumno</h1>
+        <p>Busca un alumno por nombre o RUT para generar sus documentos.</p>
+    </div>
+
+    <div class="card">
+        <div class="search-panel">
+            <div class="form-group" style="margin:0">
+                <label>Nombre o RUT del alumno</label>
+                <input type="text" id="searchInput" placeholder="Ej: Axel Oyarce / 19.681.751-4" oninput="searchStudents()">
+            </div>
+            <button class="btn btn-primary" onclick="searchStudents()">Buscar</button>
+        </div>
+        <div id="searchResults" class="search-results"></div>
+    </div>
+</div>
+
+<!-- ── SECCIÓN GENERAR ── -->
+<div id="secGenerar" class="hidden">
+    <div class="page-header no-print">
+        <h1>📄 Generar Documentos</h1>
+        <p id="headerAlumno">Selecciona el curso y tipo de documento.</p>
+    </div>
+
+    <!-- Selector de curso -->
+    <div class="card no-print" id="cardCurso">
+        <p style="font-size:13px;font-weight:600;color:var(--text-mid);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;">Cursos aprobados</p>
+        <div class="course-grid" id="courseGrid"></div>
+    </div>
+
+    <!-- Acciones -->
+    <div class="actions-bar no-print" id="actionsBar" style="display:none">
+        <div class="doc-tabs">
+            <button class="doc-tab active" onclick="setDocType('diploma')" id="tab-diploma">🏆 Diploma</button>
+            <button class="doc-tab" onclick="setDocType('cert')" id="tab-cert">📜 Certificado</button>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+            <button class="btn btn-secondary" onclick="showSection('buscar')">← Volver</button>
+            <button class="btn btn-gold" onclick="printDoc()">🖨️ Imprimir / Guardar PDF</button>
+        </div>
+    </div>
+
+    <!-- Vista previa diploma -->
+    <div id="previewDiploma" class="hidden diploma-scale-wrap">
+        <div class="diploma-wrap">
+            <div class="diploma" id="diplomaDoc">
+
+                <!-- Franjas generadas con ::before/::after -->
+
+                <!-- Logo izquierda -->
+                <div class="diploma-logo-left">
+                    <svg width="52" height="52" viewBox="0 0 100 100" fill="none" class="inasep-shield-svg">
+                        <path d="M50 5 L90 20 L90 55 C90 75 70 92 50 97 C30 92 10 75 10 55 L10 20 Z" fill="#142a1b" stroke="#4a8c5c" stroke-width="3"/>
+                        <circle cx="50" cy="48" r="22" stroke="#9fcfab" stroke-width="2" fill="none"/>
+                        <text x="50" y="55" text-anchor="middle" font-family="serif" font-size="16" fill="#9fcfab" font-weight="bold">INASEP</text>
+                    </svg>
+                </div>
+
+                <!-- Escudo de fondo -->
+                <svg class="diploma-shield-bg" viewBox="0 0 200 240" fill="none">
+                    <path d="M100 10 L185 40 L185 120 C185 175 145 210 100 230 C55 210 15 175 15 120 L15 40 Z" fill="#4a8c5c"/>
+                    <circle cx="100" cy="110" r="55" stroke="#4a8c5c" stroke-width="4" fill="none"/>
+                </svg>
+
+                <div class="diploma-inner">
+                    <div class="diploma-content">
+                        <div class="diploma-subtitle" id="d-instituto">INSTITUTO INASEP SPA CERTIFICA QUE:</div>
+                        <div class="diploma-title">DIPLOMA DE HONOR</div>
+                        <div class="diploma-name" id="d-nombre">NOMBRE DEL ALUMNO</div>
+                        <div class="diploma-body" id="d-body">Ha finalizado con éxito el curso de...</div>
+                        <div class="diploma-date" id="d-fecha"></div>
+                    </div>
+                </div>
+
+                <!-- Firma -->
+                <div class="diploma-footer">
+                    <div class="diploma-firma">
+                        <div class="linea"></div>
+                        <div class="nombre">Elizabeth Orellana Pizarro</div>
+                        <div class="cargo">Directora — Instituto Inasep SpA</div>
+                    </div>
+                </div>
+
+                <!-- Sello decorativo -->
+                <div class="sello" style="position:absolute;bottom:18mm;right:40mm;z-index:2;width:28mm;height:28mm;border-radius:50%;border:2px solid var(--green-600);display:flex;align-items:center;justify-content:center;opacity:.3;">
+                    <div style="font-size:4pt;color:var(--green-700);font-family:'Sora',sans-serif;text-align:center;letter-spacing:1px;">INASEP<br>INSTITUTO</div>
+                </div>
+
+                <!-- QR -->
+                <div class="diploma-qr">
+                    <canvas id="qrDiploma"></canvas>
+                    <small id="qrDiplomaLabel">Verificar</small>
+                </div>
+
+                <!-- Logo derecha (sello circular simplificado) -->
+                <div style="position:absolute;top:18mm;right:14mm;z-index:2;">
+                    <svg width="44" height="44" viewBox="0 0 100 100" fill="none">
+                        <circle cx="50" cy="50" r="46" stroke="#4a8c5c" stroke-width="3" fill="none"/>
+                        <circle cx="50" cy="50" r="38" stroke="#4a8c5c" stroke-width="1.5" fill="none"/>
+                        <text x="50" y="46" text-anchor="middle" font-family="serif" font-size="9" fill="#4a8c5c">INSTITUTO</text>
+                        <text x="50" y="57" text-anchor="middle" font-family="serif" font-size="12" fill="#4a8c5c" font-weight="bold">INASEP</text>
+                        <text x="50" y="67" text-anchor="middle" font-family="serif" font-size="7" fill="#4a8c5c">SPA</text>
+                    </svg>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Vista previa certificado -->
+    <div id="previewCert" class="hidden">
+        <div class="cert-wrap">
+            <div class="cert" id="certDoc">
+
+                <div class="cert-top-bar">
+                    <span>Instituto INASEP SpA — Certificado de Aprobación</span>
+                </div>
+
+                <div class="cert-body">
+                    <div class="cert-logo-row">
+                        <svg width="44" height="44" viewBox="0 0 100 100" fill="none">
+                            <path d="M50 5 L90 20 L90 55 C90 75 70 92 50 97 C30 92 10 75 10 55 L10 20 Z" fill="#142a1b" stroke="#4a8c5c" stroke-width="3"/>
+                            <text x="50" y="55" text-anchor="middle" font-family="serif" font-size="14" fill="#9fcfab" font-weight="bold">I</text>
+                        </svg>
+                        <div class="brand">INASEP</div>
+                    </div>
+
+                    <div class="cert-title-block">
+                        <h1>CERTIFICADO<br><span>DE APROBACIÓN</span></h1>
+                    </div>
+
+                    <div class="cert-shield-wrap">
+                        <svg class="cert-shield-bg" viewBox="0 0 200 240" fill="none">
+                            <path d="M100 10 L185 40 L185 120 C185 175 145 210 100 230 C55 210 15 175 15 120 L15 40 Z" fill="#4a8c5c"/>
+                        </svg>
+
+                        <span class="cert-certifica">Instituto INASEP SpA certifica que:</span>
+                        <span class="cert-name" id="c-nombre">NOMBRE DEL ALUMNO</span>
+
+                        <p class="cert-body-text" id="c-body">...</p>
+                        <p class="cert-extend">Se extiende el presente certificado para los fines que estime conveniente.</p>
+                    </div>
+
+                    <p class="cert-date-place" id="c-fecha"></p>
+
+                    <div class="cert-footer">
+                        <div style="display:flex;flex-direction:column;gap:4px;align-items:center;">
+                            <svg width="38" height="38" viewBox="0 0 100 100" fill="none">
+                                <circle cx="50" cy="50" r="46" stroke="#4a8c5c" stroke-width="2" fill="none"/>
+                                <text x="50" y="46" text-anchor="middle" font-family="serif" font-size="9" fill="#4a8c5c">INSTITUTO</text>
+                                <text x="50" y="57" text-anchor="middle" font-family="serif" font-size="11" fill="#4a8c5c" font-weight="bold">INASEP</text>
+                                <text x="50" y="66" text-anchor="middle" font-family="serif" font-size="7" fill="#4a8c5c">SPA</text>
+                            </svg>
+                        </div>
+
+                        <div class="cert-firma">
+                            <div class="linea"></div>
+                            <div class="nombre">Elizabeth Orellana Pizarro</div>
+                            <div class="cargo">Directora — Instituto Inasep SpA</div>
+                        </div>
+
+                        <div class="cert-qr">
+                            <canvas id="qrCert"></canvas>
+                            <small id="qrCertLabel">Verificar</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cert-bottom-bar">
+                    <small>Instituto INASEP SpA · Nueva Ley 21.659 · Curso CCTV 2026</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /secGenerar -->
+
+</main>
+</div><!-- /dashboard -->
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════
+   FIREBASE CONFIG
+═══════════════════════════ */
+const firebaseConfig = {
+    apiKey: "AIzaSyDnzXP59rK49bmKbDeYX8oUtobVaKyI2A4",
+    authDomain: "mi-lms-563bf.firebaseapp.com",
+    projectId: "mi-lms-563bf",
+    storageBucket: "mi-lms-563bf.firebasestorage.app",
+    messagingSenderId: "303910884065",
+    appId: "1:303910884065:web:5f2fe854e17fd25ed21da0"
+};
+firebase.initializeApp(firebaseConfig);
+const db   = firebase.firestore();
+const auth = firebase.auth();
+
+/* ═══════════════════════════
+   STATE
+═══════════════════════════ */
+let currentUser = null;
+let selectedStudent = null;
+let selectedCourseData = null;
+let docType = 'diploma'; // 'diploma' | 'cert'
+let allStudents = [];
+
+/* ═══════════════════════════
+   AUTH
+═══════════════════════════ */
+auth.onAuthStateChanged(async user => {
+    if (user) {
+        const snap = await db.collection('users').doc(user.uid).get();
+        const role = snap.exists ? snap.data().role : null;
+        if (role !== 'admin') {
+            toast('❌ Solo administradores.', 'error');
+            auth.signOut();
+            return;
+        }
+        currentUser = user;
+        document.getElementById('authSection').classList.add('hidden');
+        document.getElementById('dashSection').classList.remove('hidden');
+        loadStudents();
+    } else {
+        currentUser = null;
+        document.getElementById('authSection').classList.remove('hidden');
+        document.getElementById('dashSection').classList.add('hidden');
+    }
+});
+
+async function login() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pass  = document.getElementById('loginPass').value;
+    const err   = document.getElementById('loginError');
+    err.style.display = 'none';
+    try {
+        await auth.signInWithEmailAndPassword(email, pass);
+    } catch(e) {
+        err.textContent = 'Credenciales incorrectas.';
+        err.style.display = 'block';
+    }
+}
+
+function logout() { auth.signOut(); }
+
+/* ─── Enter en login ─── */
+document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !document.getElementById('authSection').classList.contains('hidden')) login();
+});
+
+/* ═══════════════════════════
+   NAVEGACIÓN
+═══════════════════════════ */
+function showSection(sec) {
+    document.getElementById('secBuscar').classList.toggle('hidden', sec !== 'buscar');
+    document.getElementById('secGenerar').classList.toggle('hidden', sec !== 'generar');
+    document.querySelectorAll('.sidebar-nav a').forEach(a => a.classList.remove('active'));
+    const nav = document.getElementById('nav-' + sec);
+    if (nav) nav.classList.add('active');
+}
+
+/* ═══════════════════════════
+   CARGAR ALUMNOS
+═══════════════════════════ */
+async function loadStudents() {
+    const snap = await db.collection('users').where('role', '==', 'student').get();
+    allStudents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderStudents(allStudents);
+}
+
+function searchStudents() {
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    if (!q) { renderStudents(allStudents); return; }
+    const filtered = allStudents.filter(s =>
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.rut  || '').toLowerCase().replace(/\s/g,'').includes(q.replace(/\s/g,''))
+    );
+    renderStudents(filtered);
+}
+
+function renderStudents(list) {
+    const el = document.getElementById('searchResults');
+    if (!list.length) { el.innerHTML = '<p style="color:var(--text-light);font-size:13px;padding:8px 0;">No se encontraron alumnos.</p>'; return; }
+    el.innerHTML = list.map(s => `
+        <div class="student-row" onclick="selectStudent('${s.id}')">
+            <div class="avatar">${(s.name || '?')[0].toUpperCase()}</div>
+            <div class="info">
+                <h4>${escHtml(s.name || '—')}</h4>
+                <small>RUT: ${escHtml(s.rut || '—')} · ${escHtml(s.email || '')}</small>
+            </div>
+            <span class="badge">Ver cursos →</span>
+        </div>
+    `).join('');
+}
+
+/* ═══════════════════════════
+   SELECCIONAR ALUMNO
+═══════════════════════════ */
+async function selectStudent(uid) {
+    const student = allStudents.find(s => s.id === uid);
+    if (!student) return;
+    selectedStudent = student;
+    selectedCourseData = null;
+
+    document.getElementById('headerAlumno').textContent =
+        `Alumno: ${student.name} · RUT: ${student.rut || '—'}`;
+
+    // Cargar resultados del alumno
+    const [resultsSnap, coursesSnap] = await Promise.all([
+        db.collection('quizResults').where('userId', '==', uid).get(),
+        db.collection('courses').get()
+    ]);
+
+    const coursesMap = {};
+    coursesSnap.docs.forEach(d => { coursesMap[d.id] = { id: d.id, ...d.data() }; });
+
+    // Agrupar por curso, tomar el mejor porcentaje
+    const byCourseBest = {};
+    resultsSnap.docs.forEach(d => {
+        const data = d.data();
+        const cId  = data.courseId;
+        if (!cId) return;
+        const pct  = data.percentage || 0;
+        if (!byCourseBest[cId] || pct > byCourseBest[cId].percentage) {
+            byCourseBest[cId] = { ...data, resultId: d.id };
+        }
+    });
+
+    const approvedCourses = Object.entries(byCourseBest)
+        .filter(([,r]) => r.percentage >= 60)
+        .map(([cId, r]) => ({ ...coursesMap[cId], courseId: cId, percentage: r.percentage, resultId: r.resultId }))
+        .filter(c => c.title);
+
+    const grid = document.getElementById('courseGrid');
+    if (!approvedCourses.length) {
+        grid.innerHTML = '<p style="color:var(--text-light);font-size:13px;">Este alumno no tiene cursos aprobados aún.</p>';
+    } else {
+        grid.innerHTML = approvedCourses.map(c => `
+            <div class="course-card" onclick="selectCourse(this, ${JSON.stringify(JSON.stringify(c))})" data-cid="${c.courseId}">
+                <h4>${escHtml(c.title)}</h4>
+                <div class="meta">Mejor resultado</div>
+                <div class="score">${c.percentage}%</div>
+            </div>
+        `).join('');
+    }
+
+    document.getElementById('actionsBar').style.display = 'none';
+    document.getElementById('previewDiploma').classList.add('hidden');
+    document.getElementById('previewCert').classList.add('hidden');
+    showSection('generar');
+}
+
+function selectCourse(el, jsonStr) {
+    const course = JSON.parse(jsonStr);
+    selectedCourseData = course;
+    document.querySelectorAll('.course-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('actionsBar').style.display = 'flex';
+    generateDocuments();
+}
+
+/* ═══════════════════════════
+   GENERACIÓN
+═══════════════════════════ */
+function setDocType(type) {
+    docType = type;
+    document.getElementById('tab-diploma').classList.toggle('active', type === 'diploma');
+    document.getElementById('tab-cert').classList.toggle('active', type === 'cert');
+    document.getElementById('previewDiploma').classList.toggle('hidden', type !== 'diploma');
+    document.getElementById('previewCert').classList.toggle('hidden', type !== 'cert');
+}
+
+function generateDocuments() {
+    if (!selectedStudent || !selectedCourseData) return;
+
+    const s = selectedStudent;
+    const c = selectedCourseData;
+
+    const nombreCompleto = (s.name || '').toUpperCase();
+    const cursoNombre    = c.title || 'Curso';
+    const pct            = c.percentage;
+    const horas          = c.hours || c.totalHours || 36; // si no hay campo horas, usa 36 por defecto
+    const hoy            = new Date();
+    const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const fechaLarga = `${hoy.getDate()} de ${meses[hoy.getMonth()]} del ${hoy.getFullYear()}`;
+    const fechaCorta = `Quilpué, ${hoy.getDate()} de ${meses[hoy.getMonth()].toUpperCase()} del ${hoy.getFullYear()}`;
+
+    // URL de verificación (usa el resultId del quizResult)
+    const verifyUrl = `https://mi-lms-563bf.firebaseapp.com/#verify/${c.resultId || s.id}`;
+
+    /* ─── DIPLOMA ─── */
+    document.getElementById('d-nombre').textContent = nombreCompleto;
+    document.getElementById('d-body').textContent =
+        `Ha finalizado con éxito el curso de ${cursoNombre} de ${horas} horas, obteniendo un puntaje de ${pct}%`;
+    document.getElementById('d-fecha').textContent = fechaLarga;
+
+    /* ─── CERTIFICADO ─── */
+    document.getElementById('c-nombre').textContent = nombreCompleto;
+    document.getElementById('c-body').innerHTML =
+        `<strong>RUT: ${escHtml(s.rut || '—')},</strong> realizó y finalizó de manera exitosa el
+        <strong>Curso de ${escHtml(cursoNombre)}</strong> en Instituto Inasep SpA., durante el mes de
+        ${meses[hoy.getMonth()].toUpperCase()} del ${hoy.getFullYear()}, con una carga horaria de
+        <strong>${horas} Horas</strong>, aprobando con un <strong>${pct}%</strong> todos sus módulos.`;
+    document.getElementById('c-fecha').textContent = fechaCorta;
+
+    /* ─── QR CODES ─── */
+    generateQR('qrDiploma', verifyUrl);
+    generateQR('qrCert',    verifyUrl);
+    document.getElementById('qrDiplomaLabel').textContent = 'Instituto INASEP SpA · Nueva Ley 21.659';
+    document.getElementById('qrCertLabel').textContent    = 'Instituto INASEP SpA · Nueva Ley 21.659';
+
+    /* Mostrar tipo activo */
+    document.getElementById('previewDiploma').classList.toggle('hidden', docType !== 'diploma');
+    document.getElementById('previewCert').classList.toggle('hidden', docType !== 'cert');
+}
+
+function generateQR(canvasId, url) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    // Limpiar canvas anterior
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    QRCode.toCanvas(canvas, url, {
+        width: 80, margin: 1,
+        color: { dark: '#1a2e1e', light: '#ffffff' }
+    }, err => { if (err) console.warn('QR error:', err); });
+}
+
+/* ═══════════════════════════
+   IMPRIMIR
+═══════════════════════════ */
+function printDoc() {
+    window.print();
+}
+
+/* ═══════════════════════════
+   UTILS
+═══════════════════════════ */
+function escHtml(str) {
+    return String(str)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toast(msg, type='success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast toast-' + type + ' show';
+    setTimeout(() => el.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>
