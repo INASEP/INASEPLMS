@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verificador de Documentos INASEP</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+body {
+  background: #eaf2ea;
+  font-family: 'Segoe UI', 'Times New Roman', serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  margin: 0;
+}
+.card {
+  background: white;
+  border-radius: 32px;
+  max-width: 700px;
+  width: 100%;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+  border: 1px solid #cedfd0;
+  padding: 30px 28px;
+  text-align: center;
+}
+.logo {
+  font-size: 38px;
+  font-weight: 800;
+  color: #1e3d28;
+  margin-bottom: 12px;
+}
+h1 {
+  font-size: 1.6rem;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #cfa668;
+  display: inline-block;
+  padding-bottom: 6px;
+}
+.valid-badge {
+  background: #27ae60;
+  color: white;
+  padding: 10px 24px;
+  border-radius: 60px;
+  display: inline-block;
+  font-weight: bold;
+  margin: 20px 0;
+  font-size: 1.1rem;
+}
+.invalid-badge {
+  background: #c0392b;
+  color: white;
+  padding: 10px 24px;
+  border-radius: 60px;
+  display: inline-block;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+.info {
+  background: #f9fbf7;
+  border-radius: 24px;
+  padding: 22px;
+  margin: 20px 0;
+  text-align: left;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+.info strong {
+  color: #2a5536;
+  display: inline-block;
+  min-width: 140px;
+}
+.info p {
+  margin: 8px 0;
+  border-bottom: 1px solid #e5f0e8;
+  padding-bottom: 6px;
+}
+.info p:last-child {
+  border-bottom: none;
+}
+.footer {
+  margin-top: 28px;
+  font-size: 0.8rem;
+  color: #8aa899;
+}
+.spinner {
+  border: 4px solid #e0e8e0;
+  border-top-color: #4a8c5c;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 20px auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.doc-icon {
+  font-size: 3rem;
+  margin-bottom: 10px;
+}
+</style>
+</head>
+<body>
+<div class="card" id="verificationCard">
+  <div class="logo">INASEP</div>
+  <h1>Verificador Oficial de Documentos</h1>
+  <div id="contentArea">
+    <div class="spinner"></div>
+    <p>Cargando información del documento...</p>
+  </div>
+  <div class="footer">
+    Documento emitido por Instituto Nacional de Seguridad Privada<br>
+    <span style="font-size:0.7rem">Sistema de verificación en línea — Validez garantizada</span>
+  </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDnzXP59rK49bmKbDeYX8oUtobVaKyI2A4",
+  authDomain: "mi-lms-563bf.firebaseapp.com",
+  projectId: "mi-lms-563bf",
+  storageBucket: "mi-lms-563bf.firebasestorage.app",
+  messagingSenderId: "303910884065",
+  appId: "1:303910884065:web:5f2fe854e17fd25ed21da0"
+};
+
+try {
+  firebase.initializeApp(firebaseConfig);
+} catch (e) {
+  console.log("Firebase ya inicializado:", e.message);
+}
+const db = firebase.firestore();
+
+const params = new URLSearchParams(window.location.search);
+const tokenId = params.get('id');
+
+window.addEventListener('load', async () => {
+  const content = document.getElementById('contentArea');
+
+  if (!tokenId) {
+    content.innerHTML = `
+      <div class="doc-icon">❌</div>
+      <div class="invalid-badge">Documento Inválido</div>
+      <p style="margin-top:15px;color:#555">No se especificó un código de verificación en la URL.<br>
+      Escanea nuevamente el código QR o verifica el enlace.</p>
+    `;
+    return;
+  }
+
+  try {
+    const docRef = db.collection('diplomas').doc(tokenId);
+    const docSnap = await docRef.get();
+
+    if (!docSnap.exists) {
+      content.innerHTML = `
+        <div class="doc-icon">⚠️</div>
+        <div class="invalid-badge">Documento No Encontrado</div>
+        <p style="margin-top:15px;color:#555">Este certificado o diploma no está registrado en nuestros sistemas.<br>
+        Verifica que el código sea correcto o contacta al Instituto INASEP.</p>
+      `;
+      return;
+    }
+
+    const data = docSnap.data();
+    const docType = data.type === 'diploma' ? 'DIPLOMA DE HONOR' : 'CERTIFICADO DE APROBACIÓN';
+    const docIcon = data.type === 'diploma' ? '🏅' : '📜';
+
+    let fechaEmision = 'Fecha no disponible';
+    if (data.issuedAt) {
+      try {
+        let dateObj;
+        if (data.issuedAt.toDate) {
+          dateObj = data.issuedAt.toDate();
+        } else if (data.issuedAt.seconds) {
+          dateObj = new Date(data.issuedAt.seconds * 1000);
+        } else {
+          dateObj = new Date(data.issuedAt);
+        }
+        fechaEmision = dateObj.toLocaleDateString('es-CL', { 
+          day: '2-digit', 
+          month: 'long', 
+          year: 'numeric' 
+        });
+      } catch (e) {
+        fechaEmision = 'Fecha no disponible';
+      }
+    }
+
+    content.innerHTML = `
+      <div class="doc-icon">${docIcon}</div>
+      <div class="valid-badge">✅ Documento Válido y Verificado</div>
+      <div class="info">
+        <p><strong>📋 Tipo:</strong> ${docType}</p>
+        <p><strong>👤 Alumno:</strong> ${escapeHtml(data.studentName)}</p>
+        <p><strong>📄 RUT:</strong> ${data.studentRut || 'No especificado'}</p>
+        <p><strong>📘 Curso:</strong> ${escapeHtml(data.courseName)}</p>
+        <p><strong>📊 Puntaje:</strong> ${data.percentage}% (${data.score !== undefined ? data.score : 'N/A'})</p>
+        <p><strong>⏱️ Carga Horaria:</strong> ${data.hours || 120} horas</p>
+        <p><strong>📅 Fecha de emisión:</strong> ${fechaEmision}</p>
+        <p><strong>🆔 Código:</strong> <code style="background:#eef6f0;padding:2px 6px;border-radius:4px;font-size:0.85rem">${tokenId}</code></p>
+      </div>
+      <p style="font-size:13px;color:#555;margin-top:10px">
+        Este documento fue emitido oficialmente por la plataforma INASEP.<br>
+        Su autenticidad ha sido verificada exitosamente en este portal oficial.
+      </p>
+    `;
+  } catch (error) {
+    console.error("Error al verificar:", error);
+    content.innerHTML = `
+      <div class="doc-icon">🔧</div>
+      <div class="invalid-badge">Error de Conexión</div>
+      <p style="margin-top:15px;color:#555">No se pudo verificar el documento en este momento.<br>
+      Error: ${escapeHtml(error.message)}<br>
+      Por favor intenta nuevamente más tarde.</p>
+    `;
+  }
+});
+
+function escapeHtml(str) { 
+  if(!str) return ''; 
+  return str.toString().replace(/[&<>"']/g, function(m){
+    if(m==='&') return '&amp;'; 
+    if(m==='<') return '&lt;'; 
+    if(m==='>') return '&gt;'; 
+    if(m==='"') return '&quot;';
+    if(m==="'") return '&#039;';
+    return m;
+  }); 
+}
+</script>
+</body>
+</html>
