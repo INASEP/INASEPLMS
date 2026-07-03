@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Casos Reales · Operador CCTV · INASEP</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root{
+  --void:#07100C; --panel:#0F1815; --panel-2:#141F1B; --screen:#050A07;
+  --phosphor:#4FE0A8; --phosphor-dim:#2A7A5C; --amber:#FFB454; --alarm:#E8483A;
+  --gold:#C9A15A; --text:#E7F3EC; --text-dim:#6E8A7E; --border:#1E2C27; --actor:#8FB3A6;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--void);color:var(--text);font-family:'Space Grotesk',sans-serif;}
+.mono{font-family:'JetBrains Mono',monospace;}
+body{min-height:100vh;background:radial-gradient(ellipse at top, rgba(79,224,168,0.05), transparent 60%), var(--void);}
+
+#start-screen,#end-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+.card{max-width:640px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:40px 36px;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--phosphor),var(--gold),var(--amber));}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.18em;color:var(--phosphor);text-transform:uppercase;margin-bottom:14px;}
+.card h1{font-size:28px;font-weight:700;margin:0 0 6px;letter-spacing:-0.01em;}
+.card .sub{color:var(--text-dim);font-size:15px;margin-bottom:24px;line-height:1.55;}
+.case-preview{display:grid;gap:8px;margin-bottom:26px;}
+.case-preview .row{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--text-dim);}
+.case-preview .row .n{font-family:'JetBrains Mono',monospace;color:var(--gold);font-size:11px;width:18px;flex-shrink:0;}
+.btn-primary{width:100%;padding:16px;border:none;border-radius:3px;background:var(--phosphor);color:#052013;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;cursor:pointer;transition:filter .15s ease, transform .15s ease;}
+.btn-primary:hover{filter:brightness(1.08);transform:translateY(-1px);}
+.foot-note{margin-top:14px;text-align:center;font-size:11.5px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;}
+
+#app{display:none;min-height:100vh;flex-direction:column;align-items:center;padding:22px 16px;}
+.top-strip{width:100%;max-width:760px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-dim);}
+.top-strip .brand{display:flex;align-items:center;gap:8px;}
+.brand-dot{width:8px;height:8px;border-radius:50%;background:var(--phosphor);box-shadow:0 0 8px var(--phosphor);animation:blink 1.4s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.25;}}
+.case-counter{color:var(--gold);}
+.progress-track{width:100%;max-width:760px;height:4px;background:var(--panel-2);border-radius:2px;overflow:hidden;margin-bottom:18px;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--phosphor-dim),var(--phosphor));width:0%;transition:width .5s ease;}
+
+.case-box{width:100%;max-width:760px;background:var(--panel);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+.scene-wrap{position:relative;background:var(--screen);}
+.scene-wrap canvas{display:block;width:100%;height:auto;}
+.scene-wrap::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.12) 3px);mix-blend-mode:multiply;}
+.scene-tag{position:absolute;top:8px;left:8px;font-family:'JetBrains Mono',monospace;font-size:10px;background:rgba(0,0,0,0.55);color:var(--phosphor);padding:3px 7px;border-radius:2px;}
+
+.radio-block{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--panel-2);}
+.radio-label{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--amber);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;}
+.radio-text{font-size:14.5px;line-height:1.6;color:var(--text);}
+
+.decision-block{padding:18px 20px;}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:12px;display:block;}
+.opt-group{display:grid;gap:9px;}
+.opt-btn{
+  display:flex;align-items:flex-start;gap:10px;padding:12px 13px;border:1px solid var(--border);
+  border-radius:3px;cursor:pointer;font-size:13.5px;background:var(--panel-2);transition:border-color .15s ease;
+  text-align:left;color:var(--text);font-family:'Space Grotesk',sans-serif;line-height:1.4;
+}
+.opt-btn:hover{border-color:var(--phosphor-dim);}
+.opt-btn:disabled{cursor:default;}
+.opt-btn .letter{font-family:'JetBrains Mono',monospace;color:var(--phosphor-dim);flex-shrink:0;}
+.opt-btn.correct{border-color:var(--phosphor);background:rgba(79,224,168,0.08);}
+.opt-btn.subopt{border-color:var(--amber);background:rgba(255,180,84,0.08);}
+.opt-btn.incorrect{border-color:var(--alarm);background:rgba(232,72,58,0.08);opacity:0.75;}
+
+.feedback-block{margin-top:14px;padding:14px 15px;border-radius:3px;border-left:3px solid var(--phosphor);background:var(--panel-2);display:none;}
+.feedback-block.show{display:block;}
+.feedback-block.subopt{border-left-color:var(--amber);}
+.feedback-block.incorrect{border-left-color:var(--alarm);}
+.feedback-verdict{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;}
+.feedback-verdict.correct{color:var(--phosphor);}
+.feedback-verdict.subopt{color:var(--amber);}
+.feedback-verdict.incorrect{color:var(--alarm);}
+.feedback-text{font-size:13.5px;line-height:1.55;color:var(--text-dim);}
+.btn-continue{width:100%;margin-top:14px;padding:13px;border:none;border-radius:3px;background:var(--gold);color:#241a05;font-weight:700;font-family:'Space Grotesk',sans-serif;font-size:14px;cursor:pointer;display:none;}
+.btn-continue.show{display:block;}
+
+.end-summary{width:100%;text-align:left;margin:22px 0;}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.summary-row .case-name{color:var(--text);}
+.tag{font-family:'JetBrains Mono',monospace;font-size:10.5px;padding:3px 8px;border-radius:10px;}
+.tag.correct{color:var(--phosphor);background:rgba(79,224,168,0.1);}
+.tag.subopt{color:var(--amber);background:rgba(255,180,84,0.1);}
+.tag.incorrect{color:var(--alarm);background:rgba(232,72,58,0.1);}
+.verdict-block{text-align:center;margin-bottom:8px;}
+.verdict-name{font-size:24px;font-weight:700;color:var(--gold);margin:6px 0 4px;}
+.verdict-sub{color:var(--text-dim);font-size:13.5px;line-height:1.5;max-width:480px;margin:0 auto;}
+
+@media (max-width:520px){
+  .card{padding:28px 22px;} .card h1{font-size:22px;}
+  .radio-block,.decision-block{padding:14px 15px;}
+}
+</style>
+</head>
+<body>
+
+<div id="start-screen">
+  <div class="card">
+    <div class="eyebrow">INASEP · Operador CCTV · Casos Reales</div>
+    <h1>Casos de Sala de Control</h1>
+    <p class="sub">10 escenarios inspirados en situaciones reales que enfrenta un operador CCTV en Chile. En cada uno decides qué acción tomar — la que corresponde a tu rol y a tu protocolo, no la más heroica.</p>
+    <div class="case-preview">
+      <div class="row"><span class="n">01</span> Hurto hormiga en sala de ventas</div>
+      <div class="row"><span class="n">02</span> Objeto abandonado en acceso principal</div>
+      <div class="row"><span class="n">03</span> Ingreso no autorizado a bodega</div>
+      <div class="row"><span class="n">04</span> Altercado en el estacionamiento</div>
+      <div class="row"><span class="n">05</span> Vehículo merodeando de noche</div>
+      <div class="row"><span class="n">06</span> Seguimiento a una trabajadora</div>
+      <div class="row"><span class="n">07</span> Robo por distracción en caja</div>
+      <div class="row"><span class="n">08</span> Humo en sala de servidores</div>
+      <div class="row"><span class="n">09</span> Menor de edad en riesgo</div>
+      <div class="row"><span class="n">10</span> Falla de cámara en pleno evento</div>
+    </div>
+    <button class="btn-primary" id="start-btn">Comenzar Turno de Casos</button>
+    <div class="foot-note">RECUERDA: TU ROL ES OBSERVAR, REGISTRAR Y NOTIFICAR — NO INTERVENIR FÍSICAMENTE</div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="top-strip">
+    <div class="brand"><div class="brand-dot"></div><span>SALA DE CONTROL · CASOS REALES</span></div>
+    <div class="case-counter" id="case-counter">CASO 1/6</div>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+  <div class="case-box">
+    <div class="scene-wrap">
+      <canvas id="scene-canvas" width="480" height="260"></canvas>
+      <div class="scene-tag" id="scene-tag">CAM-01</div>
+    </div>
+    <div class="radio-block">
+      <div class="radio-label">Parte de sala</div>
+      <div class="radio-text" id="radio-text">—</div>
+    </div>
+    <div class="decision-block">
+      <span class="field-label">¿Qué acción tomas?</span>
+      <div class="opt-group" id="opt-group"></div>
+      <div class="feedback-block" id="feedback-block">
+        <div class="feedback-verdict" id="feedback-verdict">—</div>
+        <div class="feedback-text" id="feedback-text">—</div>
+      </div>
+      <button class="btn-continue" id="btn-continue">Siguiente Caso</button>
+    </div>
+  </div>
+</div>
+
+<div id="end-screen" style="display:none;">
+  <div class="card" style="max-width:600px;">
+    <div class="verdict-block">
+      <div class="eyebrow" style="text-align:center;">Informe de casos · Fin de turno</div>
+      <div class="verdict-name" id="verdict-name">—</div>
+      <p class="verdict-sub" id="verdict-sub">—</p>
+    </div>
+    <div class="end-summary" id="end-summary"></div>
+    <button class="btn-primary" id="restart-btn">Reiniciar Casos</button>
+  </div>
+</div>
+
+<script>
+const CASES = [
+  {
+    id:'hurto_hormiga', camTag:'CAM-04 · SALA DE VENTAS',
+    radio:'Cámara 4 muestra a un cliente en el pasillo de licores guardando dos botellas bajo la chaqueta. Se dirige lento hacia las cajas, sin pagar ese producto.',
+    scene:{bg:'store', actorPath:[[80,150],[220,150],[220,150],[360,190]], prop:{type:'shelf'}},
+    options:[
+      {id:'A', label:'Salir tú mismo a confrontarlo antes de que llegue a caja', verdict:'incorrect', text:'El operador no abandona su puesto ni interviene físicamente. Eso pone en riesgo la continuidad de la vigilancia y tu propia seguridad.'},
+      {id:'B', label:'Notificar de inmediato al guardia de piso por radio con ubicación y descripción, y seguir registrando', verdict:'correct', text:'Correcto. Informas a quien sí puede actuar en terreno, mantienes tu puesto y dejas registro de lo observado.'},
+      {id:'C', label:'No hacer nada porque el monto es bajo', verdict:'incorrect', text:'Toda sustracción debe reportarse, sin importar el valor. El monto no determina si corresponde informar.'},
+      {id:'D', label:'Activar la alarma general del local', verdict:'subopt', text:'La alarma general es para emergencias mayores. Usarla aquí genera pánico innecesario para un caso que se resuelve con aviso dirigido.'}
+    ]
+  },
+  {
+    id:'objeto_abandonado', camTag:'CAM-01 · ACCESO PRINCIPAL',
+    radio:'Un bolso quedó solo junto a la puerta de acceso hace más de 10 minutos. La persona que lo dejó no ha vuelto y no hay nadie cerca del bulto.',
+    scene:{bg:'entrance', actorPath:[[100,170],[220,170],[220,170],[420,170]], prop:{type:'bag', x:225, y:175}},
+    options:[
+      {id:'A', label:'Ir tú personalmente a revisar el bolso', verdict:'incorrect', text:'El operador no manipula objetos sospechosos. El riesgo de un objeto abandonado se evalúa desde protocolo, no acercándose.'},
+      {id:'B', label:'Notificar al guardia de turno para que acordone el área y evalúe si corresponde escalar a Carabineros', verdict:'correct', text:'Correcto. Se activa el protocolo de objeto abandonado: aislar y evaluar, con la persona indicada haciéndolo en terreno.'},
+      {id:'C', label:'Esperar a ver si el dueño vuelve antes de avisar', verdict:'incorrect', text:'Esperar sin avisar pierde tiempo crítico. El aviso debe darse apenas se cumple el criterio de tiempo/abandono, no después.'},
+      {id:'D', label:'Llamar directo a Carabineros sin pasar por el guardia interno', verdict:'subopt', text:'No está mal escalar, pero el canal correcto primero es el protocolo interno, salvo que haya un riesgo inminente evidente.'}
+    ]
+  },
+  {
+    id:'acceso_bodega', camTag:'CAM-06 · BODEGA',
+    radio:'Una persona sin uniforme visible ingresa a la bodega justo detrás de un trabajador, aprovechando que la puerta con tarjeta seguía abierta (acceso en cola / tailgating).',
+    scene:{bg:'warehouse', actorPath:[[90,180],[200,150],[300,150],[300,150]], prop:{type:'door', x:280, y:120}},
+    options:[
+      {id:'A', label:'Notificar de inmediato al guardia de turno con la hora exacta para verificación en terreno', verdict:'correct', text:'Correcto. El acceso no verificado se reporta al instante para que alguien en terreno confirme identidad y autorización.'},
+      {id:'B', label:'Ignorarlo porque "puede que sea personal nuevo"', verdict:'incorrect', text:'Toda anomalía de acceso debe verificarse, nunca asumirse. Es exactamente el tipo de supuesto que un operador no debe hacer.'},
+      {id:'C', label:'Bloquear tú remotamente la puerta sin avisar a nadie', verdict:'subopt', text:'La acción técnica sola, sin dar aviso, complica la verificación en terreno y dificulta la respuesta coordinada.'},
+      {id:'D', label:'Hablarle por el altavoz para pedirle que se identifique', verdict:'incorrect', text:'Expone la posición del operador y puede alertar a la persona antes de que el guardia llegue a verificar. No corresponde al rol.'}
+    ]
+  },
+  {
+    id:'altercado_estacionamiento', camTag:'CAM-03 · ESTACIONAMIENTO',
+    radio:'Dos personas están discutiendo junto a un vehículo. El tono sube y uno de ellos empuja al otro. Podría escalar a agresión física.',
+    scene:{bg:'lot', actorPath:[[180,170],[220,170],[180,170],[220,170]], prop:{type:'car', x:260, y:160}},
+    options:[
+      {id:'A', label:'Notificar de inmediato al guardia de turno y evaluar aviso a Carabineros por riesgo de agresión', verdict:'correct', text:'Correcto. Un altercado que escala a violencia requiere aviso inmediato por doble canal si el riesgo lo amerita.'},
+      {id:'B', label:'Esperar a que se calmen solos antes de avisar', verdict:'incorrect', text:'Hay riesgo real a las personas en este momento. No se espera frente a una situación que puede derivar en agresión.'},
+      {id:'C', label:'Bajar tú mismo a separarlos', verdict:'incorrect', text:'El operador no interviene físicamente. No está autorizado ni es su función desde la sala de control.'},
+      {id:'D', label:'Solo registrar el hecho en la bitácora sin notificar en el momento', verdict:'incorrect', text:'Un riesgo activo a personas exige aviso inmediato, no solo un registro para el informe posterior.'}
+    ]
+  },
+  {
+    id:'vehiculo_merodeo', camTag:'CAM-03 · ESTACIONAMIENTO NORTE',
+    radio:'Un vehículo ha dado tres vueltas completas al estacionamiento en los últimos 15 minutos, sin estacionar. Es de noche y el sector tiene poca luz.',
+    scene:{bg:'lot-night', actorPath:[[60,190],[420,190],[420,190],[60,190]], prop:{type:'car-moving'}},
+    options:[
+      {id:'A', label:'Registrar patente, hora y patrón de movimiento, y notificar al guardia para reforzar rondas en el sector', verdict:'correct', text:'Correcto. El patrón de merodeo es un indicador en sí mismo: se documenta y se refuerza vigilancia sin escalar de más.'},
+      {id:'B', label:'No hacer nada porque "no ha pasado nada aún"', verdict:'incorrect', text:'El patrón de merodeo repetido es justamente lo que se debe reportar, aunque todavía no haya un hecho consumado.'},
+      {id:'C', label:'Llamar de inmediato a Carabineros por un vehículo dando vueltas', verdict:'subopt', text:'Aún no hay delito ni riesgo confirmado. Corresponde reforzar vigilancia primero y escalar si el patrón persiste o empeora.'},
+      {id:'D', label:'Dejar de mirar esa cámara porque "seguro es un cliente indeciso"', verdict:'incorrect', text:'Se descarta la situación sin verificar. El operador no debe asumir explicaciones sin haberlas confirmado.'}
+    ]
+  },
+  {
+    id:'seguimiento_trabajadora', camTag:'CAM-05 · ACCESO TRASERO',
+    radio:'Al salir de turno, una trabajadora es seguida de cerca por una persona desconocida hacia el estacionamiento. Ella no parece haberlo notado aún.',
+    scene:{bg:'lot-night', actorPath:[[100,180],[220,180],[340,180],[420,180]], prop:{type:'follow'}},
+    options:[
+      {id:'A', label:'Notificar de inmediato al guardia de turno para que la acompañe y monitorear en tiempo real hasta que esté segura', verdict:'correct', text:'Correcto. Hay riesgo activo a una persona: se escala al instante y se mantiene monitoreo continuo hasta confirmar que está a salvo.'},
+      {id:'B', label:'Registrar el hecho para el informe de fin de turno y seguir con la ronda normal', verdict:'incorrect', text:'Hay un riesgo activo a una persona en este momento. Registrar para después no es suficiente, se requiere acción inmediata.'},
+      {id:'C', label:'Llamarla tú mismo a su teléfono personal para avisarle', verdict:'subopt', text:'Genera demora y no es el canal del protocolo. Corresponde escalar por la vía interna para que alguien la acompañe en terreno.'},
+      {id:'D', label:'No intervenir porque "podría ser alguien conocido de ella"', verdict:'incorrect', text:'Ante la duda y el riesgo a una persona, siempre se da aviso. No se asume una explicación sin confirmarla.'}
+    ]
+  },
+  {
+    id:'cuento_del_tio', camTag:'CAM-02 · CAJAS',
+    radio:'Dos personas rodean a una clienta en la caja. Uno le habla muy cerca para distraerla mientras el otro mete la mano en su bolso, que quedó abierto sobre el mesón.',
+    scene:{bg:'store', actorPath:[[120,170],[220,170],[220,170],[280,170]], prop:{type:'follow'}},
+    options:[
+      {id:'A', label:'Notificar de inmediato al guardia de piso para que se acerque a la caja como apoyo de rutina, sin confrontar directamente', verdict:'correct', text:'Correcto. Evitas advertir a los sospechosos y permites una intervención discreta en el lugar, que es más efectiva que una alerta abierta.'},
+      {id:'B', label:'Hablar por el altavoz para advertir a la clienta', verdict:'incorrect', text:'Advertir en voz alta alerta también a los sospechosos, que pueden huir con lo sustraído sin que se logre nada a favor de la víctima.'},
+      {id:'C', label:'No avisar porque "todavía no se ve que saquen algo"', verdict:'incorrect', text:'El patrón de distracción coordinada entre dos personas ya es indicador suficiente para notificar, no hace falta ver el hurto consumado.'},
+      {id:'D', label:'Esperar a que se retiren del local para avisar a Carabineros con la patente de su vehículo', verdict:'subopt', text:'Se pierde la oportunidad de una intervención oportuna dentro del local. Mejor notificar de inmediato al guardia interno mientras siguen dentro.'}
+    ]
+  },
+  {
+    id:'humo_sala_servidores', camTag:'CAM-06 · SALA SERVIDORES',
+    radio:'El sensor de humo de la sala de servidores se activó. En cámara se aprecia una leve humareda cerca del rack eléctrico principal.',
+    scene:{bg:'warehouse', actorPath:[[240,190],[240,190],[240,190],[240,190]], prop:{type:'smoke', x:240, y:150}},
+    options:[
+      {id:'A', label:'Notificar de inmediato al guardia de turno y activar el protocolo de emergencia que corresponda', verdict:'correct', text:'Correcto. Ante un riesgo de incendio se prioriza la seguridad de las personas y se notifica sin demora para activar el protocolo correspondiente.'},
+      {id:'B', label:'Ir tú mismo a la sala de servidores a verificar', verdict:'incorrect', text:'Abandonar el puesto de monitoreo y exponerte a un riesgo real de incendio no corresponde al rol del operador.'},
+      {id:'C', label:'Esperar a ver si la alarma se detiene sola antes de avisar', verdict:'incorrect', text:'Un indicio de incendio nunca se posterga. Se notifica de inmediato, aunque parezca menor al principio.'},
+      {id:'D', label:'Registrar el hecho en la bitácora y seguir monitoreando otras cámaras', verdict:'incorrect', text:'Un riesgo de incendio activo exige acción inmediata, no un registro para revisar más tarde.'}
+    ]
+  },
+  {
+    id:'menor_riesgo', camTag:'CAM-01 · ACCESO PRINCIPAL',
+    radio:'Un adulto discute de forma agresiva con un niño en la entrada y lo toma con fuerza del brazo. El niño se ve asustado.',
+    scene:{bg:'entrance', actorPath:[[160,170],[200,170],[160,170],[200,170]], prop:{type:'follow'}},
+    options:[
+      {id:'A', label:'Notificar de inmediato al guardia de turno para que se acerque a verificar la situación del menor', verdict:'correct', text:'Correcto. Un riesgo a un menor requiere verificación inmediata en terreno por alguien capacitado para hacerlo.'},
+      {id:'B', label:'No intervenir porque "es un asunto familiar privado"', verdict:'incorrect', text:'Ante señales de riesgo a un menor, siempre corresponde verificar. No se asume que es un asunto privado sin confirmarlo.'},
+      {id:'C', label:'Acercarte tú personalmente a preguntar qué pasa', verdict:'incorrect', text:'No es tu rol confrontar en terreno. Corresponde notificar para que el guardia u otra persona capacitada verifique la situación.'},
+      {id:'D', label:'Llamar directo a Carabineros sin notificar antes al guardia interno', verdict:'subopt', text:'Escalar no está mal si el riesgo es alto, pero el protocolo indica pasar primero por el canal interno salvo peligro inminente ya confirmado.'}
+    ]
+  },
+  {
+    id:'falla_camara', camTag:'CAM-05 · ACCESO TRASERO',
+    radio:'La cámara 5 se congela y pierde señal por unos segundos, justo cuando se veía a alguien merodeando cerca de la puerta trasera.',
+    scene:{bg:'lot-night', actorPath:[[300,170],[300,170],[300,170],[300,170]], prop:{type:'door', x:300, y:150}},
+    options:[
+      {id:'A', label:'Reportar de inmediato la falla técnica junto con lo último observado, y pedir refuerzo de ronda física en esa zona', verdict:'correct', text:'Correcto. Se notifica tanto el hallazgo como la falla, y se compensa la pérdida de visión con presencia física mientras se soluciona.'},
+      {id:'B', label:'Reiniciar el sistema tú mismo sin avisar a nadie y esperar que vuelva la señal', verdict:'incorrect', text:'Mientras se soluciona la falla queda una zona sin cobertura y nadie lo sabe. Siempre se avisa de inmediato antes de intentar resolverlo.'},
+      {id:'C', label:'Asumir que fue solo un problema de conexión y no darle mayor importancia', verdict:'incorrect', text:'Toda pérdida de señal combinada con actividad sospechosa previa debe reportarse, no descartarse como algo menor.'},
+      {id:'D', label:'Anotar la falla en la bitácora para revisarla al final del turno', verdict:'subopt', text:'La falla debe reportarse en el momento, no dejarse para el cierre de turno, porque hay una zona sin cobertura activa ahora mismo.'}
+    ]
+  }
+];
+
+function rand(a,b){ return a+Math.random()*(b-a); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+
+function drawScene(ctx,w,h,caseData,progress){
+  const bg=caseData.scene.bg;
+  ctx.clearRect(0,0,w,h);
+  let g;
+  if(bg==='lot-night'){ g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#050907'); g.addColorStop(1,'#040706'); }
+  else { g=ctx.createLinearGradient(0,0,0,h); g.addColorStop(0,'#0A1512'); g.addColorStop(1,'#050A07'); }
+  ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+
+  ctx.strokeStyle='rgba(79,224,168,0.05)'; ctx.lineWidth=1;
+  for(let gx=0; gx<w; gx+=40){ ctx.beginPath(); ctx.moveTo(gx,h*0.55); ctx.lineTo(gx,h); ctx.stroke(); }
+  for(let gy=h*0.55; gy<h; gy+=28){ ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(w,gy); ctx.stroke(); }
+
+  const prop=caseData.scene.prop;
+  if(prop){
+    if(prop.type==='shelf'){
+      ctx.fillStyle='#16221D';
+      for(let i=0;i<3;i++){ ctx.fillRect(30+i*140, h*0.35, 90, h*0.4); ctx.strokeStyle='rgba(201,161,90,0.25)'; ctx.strokeRect(30+i*140, h*0.35, 90, h*0.4); }
+    }
+    if(prop.type==='bag'){
+      ctx.fillStyle='#C9A15A'; ctx.fillRect(prop.x-8, prop.y-8, 16, 14);
+      ctx.strokeStyle='rgba(255,180,84,0.4)'; ctx.lineWidth=1.5; ctx.strokeRect(prop.x-14,prop.y-14,28,26);
+    }
+    if(prop.type==='door'){
+      ctx.strokeStyle='rgba(255,180,84,0.5)'; ctx.lineWidth=2;
+      ctx.strokeRect(prop.x-20, prop.y-40, 40, 90);
+      ctx.fillStyle='#FFB454'; ctx.font='8px JetBrains Mono, monospace'; ctx.fillText('ACCESO', prop.x-16, prop.y-46);
+    }
+    if(prop.type==='smoke'){
+      const t=(performance.now()/1000)%3;
+      ctx.save();
+      for(let i=0;i<4;i++){
+        const yOff=((t+i*0.7)%3)/3;
+        ctx.fillStyle='rgba(180,190,185,'+(0.22-yOff*0.18)+')';
+        ctx.beginPath();
+        ctx.arc(prop.x + Math.sin(yOff*8+i)*6, prop.y - yOff*70, 10+yOff*14, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.restore();
+      ctx.fillStyle='#1C2A25'; ctx.fillRect(prop.x-16, prop.y+10, 32, 40);
+      ctx.strokeStyle='rgba(255,180,84,0.4)'; ctx.strokeRect(prop.x-16, prop.y+10, 32, 40);
+      ctx.fillStyle='#FFB454'; ctx.font='8px JetBrains Mono, monospace'; ctx.fillText('RACK', prop.x-11, prop.y+8);
+    }
+    if(prop.type==='car' || prop.type==='car-moving'){
+      const cx = prop.type==='car-moving' ? lerp(caseData.scene.actorPath[0][0], caseData.scene.actorPath[1][0], progress) : prop.x;
+      ctx.fillStyle='#1C2A25'; ctx.fillRect(cx-30, h*0.62, 60, 24);
+      ctx.strokeStyle='rgba(79,224,168,0.3)'; ctx.strokeRect(cx-30, h*0.62, 60, 24);
+      ctx.fillStyle='#0A0F0D'; ctx.beginPath(); ctx.arc(cx-18,h*0.62+24,5,0,Math.PI*2); ctx.arc(cx+18,h*0.62+24,5,0,Math.PI*2); ctx.fill();
+    }
+  }
+
+  const path=caseData.scene.actorPath;
+  const segCount=path.length-1;
+  const segF=progress*segCount;
+  const segI=Math.min(Math.floor(segF), segCount-1);
+  const segT=segF-segI;
+  const p0=path[segI], p1=path[segI+1]||path[segI];
+  const ax=lerp(p0[0],p1[0],segT), ay=lerp(p0[1],p1[1],segT);
+  ctx.fillStyle='#8FB3A6';
+  ctx.beginPath(); ctx.arc(ax,ay-11,4.5,0,Math.PI*2); ctx.fill();
+  ctx.fillRect(ax-4.5,ay-6,9,14);
+
+  if(caseData.scene.prop && caseData.scene.prop.type==='follow'){
+    const fx=ax-38, fy=ay+2;
+    ctx.fillStyle='#6E8A7E';
+    ctx.beginPath(); ctx.arc(fx,fy-10,4,0,Math.PI*2); ctx.fill();
+    ctx.fillRect(fx-4,fy-5,8,13);
+  }
+
+  ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(0,h-15,58,15);
+  ctx.fillStyle='#6E8A7E'; ctx.font='8px JetBrains Mono, monospace';
+  const t=new Date(); ctx.fillText(String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0')+':'+String(t.getSeconds()).padStart(2,'0'), 5, h-4);
+}
+
+class CaseRunner{
+  constructor(){ this.idx=0; this.results=[]; this.raf=null; this.sceneStart=performance.now(); }
+  start(){
+    document.getElementById('start-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    this.loadCase(0);
+  }
+  loadCase(i){
+    this.idx=i; this.sceneStart=performance.now(); this.answered=false;
+    const c=CASES[i];
+    document.getElementById('case-counter').textContent='CASO '+(i+1)+'/'+CASES.length;
+    document.getElementById('progress-fill').style.width=(i/CASES.length*100)+'%';
+    document.getElementById('scene-tag').textContent=c.camTag;
+    document.getElementById('radio-text').textContent=c.radio;
+    const optGroup=document.getElementById('opt-group');
+    optGroup.innerHTML=c.options.map(o=>`<button class="opt-btn" data-id="${o.id}"><span class="letter">${o.id}</span><span>${o.label}</span></button>`).join('');
+    optGroup.querySelectorAll('.opt-btn').forEach(btn=>btn.addEventListener('click', ()=>this.answer(btn.dataset.id)));
+    document.getElementById('feedback-block').classList.remove('show','subopt','incorrect');
+    document.getElementById('btn-continue').classList.remove('show');
+    if(this.raf) cancelAnimationFrame(this.raf);
+    this.animate();
+  }
+  animate(){
+    const canvas=document.getElementById('scene-canvas');
+    const ctx=canvas.getContext('2d');
+    const c=CASES[this.idx];
+    const elapsed=(performance.now()-this.sceneStart)/1000;
+    const cycle=6;
+    const t=(elapsed%cycle)/cycle;
+    const progress = t<0.5 ? t*2 : (1-t)*2;
+    drawScene(ctx,canvas.width,canvas.height,c,progress);
+    this.raf=requestAnimationFrame(()=>this.animate());
+  }
+  answer(id){
+    if(this.answered) return;
+    this.answered=true;
+    const c=CASES[this.idx];
+    const chosen=c.options.find(o=>o.id===id);
+    document.querySelectorAll('.opt-btn').forEach(btn=>{
+      btn.disabled=true;
+      const opt=c.options.find(o=>o.id===btn.dataset.id);
+      if(opt.id===chosen.id) btn.classList.add(opt.verdict==='correct'?'correct':opt.verdict==='subopt'?'subopt':'incorrect');
+      if(opt.verdict==='correct' && opt.id!==chosen.id) btn.classList.add('correct');
+    });
+    const fb=document.getElementById('feedback-block');
+    fb.classList.add('show');
+    fb.classList.toggle('subopt', chosen.verdict==='subopt');
+    fb.classList.toggle('incorrect', chosen.verdict==='incorrect');
+    const verdictEl=document.getElementById('feedback-verdict');
+    verdictEl.className='feedback-verdict '+chosen.verdict;
+    verdictEl.textContent = chosen.verdict==='correct' ? 'Decisión correcta' : chosen.verdict==='subopt' ? 'Decisión subóptima' : 'Decisión incorrecta';
+    document.getElementById('feedback-text').textContent=chosen.text;
+    document.getElementById('btn-continue').classList.add('show');
+    this.results.push({caseId:c.id, camTag:c.camTag, chosenId:id, verdict:chosen.verdict});
+  }
+  next(){
+    if(this.idx+1<CASES.length){ this.loadCase(this.idx+1); }
+    else { this.finish(); }
+  }
+  finish(){
+    if(this.raf) cancelAnimationFrame(this.raf);
+    document.getElementById('progress-fill').style.width='100%';
+    document.getElementById('app').style.display='none';
+    document.getElementById('end-screen').style.display='flex';
+    const correct=this.results.filter(r=>r.verdict==='correct').length;
+    const subopt=this.results.filter(r=>r.verdict==='subopt').length;
+    const incorrect=this.results.filter(r=>r.verdict==='incorrect').length;
+    let name='Requiere reforzar protocolo', sub='Varias decisiones se alejan del rol del operador. Repasa cuándo notificar y cuándo escalar.';
+    if(correct>=8){ name='Juicio Operacional Sólido'; sub='Priorizas notificación y protocolo por sobre la intervención directa — exactamente el criterio que se espera de un operador CCTV.'; }
+    else if(correct>=6 && incorrect<=2){ name='Buen Criterio, con Matices'; sub='La mayoría de tus decisiones respetan el protocolo. Revisa los casos subóptimos para afinar cuándo escalar y cuándo reforzar solamente.'; }
+    else if(incorrect>=4){ name='Tiende a la Intervención Directa'; sub='Varias respuestas muestran una tendencia a actuar tú mismo en terreno. Recuerda: el rol del operador es observar, registrar y notificar.'; }
+    document.getElementById('verdict-name').textContent=name;
+    document.getElementById('verdict-sub').textContent=sub;
+    const summary=document.getElementById('end-summary');
+    summary.innerHTML=this.results.map((r,i)=>{
+      const c=CASES.find(cc=>cc.id===r.caseId);
+      const label = r.verdict==='correct'?'Correcta':r.verdict==='subopt'?'Subóptima':'Incorrecta';
+      return `<div class="summary-row"><span class="case-name">${i+1}. ${c.camTag.split('·')[1].trim()}</span><span class="tag ${r.verdict}">${label}</span></div>`;
+    }).join('') + `<div class="summary-row" style="border-bottom:none;"><span class="case-name mono" style="color:var(--text-dim);">Correctas / Subóptimas / Incorrectas</span><span class="mono">${correct} / ${subopt} / ${incorrect}</span></div>`;
+  }
+}
+
+const runner=new CaseRunner();
+document.getElementById('start-btn').addEventListener('click', ()=>runner.start());
+document.getElementById('btn-continue').addEventListener('click', ()=>runner.next());
+document.getElementById('restart-btn').addEventListener('click', ()=>location.reload());
+</script>
+</body>
+</html>
