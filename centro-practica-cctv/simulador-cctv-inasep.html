@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador Sala de Control · INASEP</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root{
+  --void:#07100C;
+  --panel:#0F1815;
+  --panel-2:#141F1B;
+  --screen:#050A07;
+  --grid-line:rgba(79,224,168,0.07);
+  --phosphor:#4FE0A8;
+  --phosphor-dim:#2A7A5C;
+  --amber:#FFB454;
+  --alarm:#E8483A;
+  --gold:#C9A15A;
+  --text:#E7F3EC;
+  --text-dim:#6E8A7E;
+  --border:#1E2C27;
+  --actor:#8FB3A6;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--void);color:var(--text);font-family:'Space Grotesk',sans-serif;}
+.mono{font-family:'JetBrains Mono',monospace;}
+
+body{min-height:100vh;background:
+  radial-gradient(ellipse at top, rgba(79,224,168,0.05), transparent 60%),
+  var(--void);
+}
+
+/* ---------- START SCREEN ---------- */
+#start-screen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:24px;
+}
+.start-card{
+  max-width:640px;width:100%;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:4px;
+  padding:40px 36px;
+  position:relative;
+  overflow:hidden;
+}
+.start-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg, var(--phosphor), var(--gold), var(--amber));
+}
+.eyebrow{
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.18em;
+  color:var(--phosphor);text-transform:uppercase;margin-bottom:14px;
+}
+.start-card h1{
+  font-size:30px;font-weight:700;margin:0 0 6px;letter-spacing:-0.01em;
+}
+.start-card .sub{color:var(--text-dim);font-size:15px;margin-bottom:26px;line-height:1.5;}
+.brief-list{list-style:none;margin:0 0 28px;padding:0;display:grid;gap:12px;}
+.brief-list li{
+  display:flex;gap:12px;font-size:14px;color:var(--text);line-height:1.5;
+}
+.brief-list .num{
+  font-family:'JetBrains Mono',monospace;color:var(--gold);font-size:12px;
+  flex-shrink:0;padding-top:2px;
+}
+#start-btn{
+  width:100%;padding:16px;border:none;border-radius:3px;
+  background:var(--phosphor);color:#052013;font-family:'Space Grotesk',sans-serif;
+  font-weight:700;font-size:15px;letter-spacing:0.02em;cursor:pointer;
+  transition:filter .15s ease, transform .15s ease;
+}
+#start-btn:hover{filter:brightness(1.08);transform:translateY(-1px);}
+.start-foot{margin-top:14px;text-align:center;font-size:11.5px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;}
+
+/* ---------- APP ---------- */
+#app{display:none;min-height:100vh;flex-direction:column;}
+#topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--border);
+  flex-wrap:wrap;gap:10px;
+}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand-dot{width:9px;height:9px;border-radius:50%;background:var(--phosphor);box-shadow:0 0 8px var(--phosphor);animation:blink 1.4s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.25;}}
+.brand-text{font-size:13px;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;color:var(--text-dim);text-transform:uppercase;}
+.brand-text b{color:var(--text);}
+.stat-strip{display:flex;gap:22px;font-family:'JetBrains Mono',monospace;font-size:13px;}
+.stat{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.stat .label{font-size:10px;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;}
+.stat .value{color:var(--phosphor);font-weight:700;font-size:15px;}
+
+#main-grid{
+  display:grid;grid-template-columns:1fr 300px;gap:16px;padding:18px 20px;flex:1;
+}
+.cam-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;align-content:start;
+}
+.cam-tile{
+  background:var(--screen);border:1px solid var(--border);border-radius:3px;
+  overflow:hidden;position:relative;cursor:pointer;transition:border-color .2s ease;
+}
+.cam-tile:hover{border-color:var(--phosphor-dim);}
+.cam-tile.alert{
+  border-color:var(--amber);
+  animation:pulse-border 1s infinite;
+}
+@keyframes pulse-border{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,180,84,0.55);}
+  50%{box-shadow:0 0 0 4px rgba(255,180,84,0.12);}
+}
+.cam-tile canvas{display:block;width:100%;height:auto;}
+.cam-tile::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,0.12) 3px);
+  mix-blend-mode:multiply;
+}
+.tile-tag{
+  position:absolute;bottom:0;left:0;right:0;padding:5px 8px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--amber);
+  background:linear-gradient(transparent, rgba(0,0,0,0.6));display:none;
+}
+.cam-tile.alert .tile-tag{display:block;}
+
+.side-panel{display:flex;flex-direction:column;gap:14px;}
+.panel-box{
+  background:var(--panel);border:1px solid var(--border);border-radius:3px;padding:14px;
+}
+.panel-title{
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;
+  color:var(--text-dim);text-transform:uppercase;margin-bottom:10px;
+  display:flex;align-items:center;gap:8px;
+}
+.panel-title::before{content:'';width:6px;height:6px;background:var(--gold);border-radius:1px;}
+#log-list{
+  display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto;
+  font-family:'JetBrains Mono',monospace;font-size:12px;
+}
+.log-entry{padding:8px 9px;background:var(--panel-2);border-left:2px solid var(--phosphor-dim);border-radius:2px;line-height:1.4;}
+.log-entry.warn{border-left-color:var(--amber);}
+.log-entry.bad{border-left-color:var(--alarm);}
+.log-entry.good{border-left-color:var(--phosphor);}
+.log-entry .t{color:var(--text-dim);margin-right:6px;}
+.progress-track{height:6px;background:var(--panel-2);border-radius:3px;overflow:hidden;margin-top:8px;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--phosphor-dim),var(--phosphor));width:0%;transition:width .4s ease;}
+.hint-text{font-size:12.5px;color:var(--text-dim);line-height:1.55;}
+
+/* ---------- MODAL ---------- */
+#modal-overlay{
+  display:none;position:fixed;inset:0;background:rgba(3,7,5,0.86);
+  z-index:50;align-items:center;justify-content:center;padding:20px;
+  backdrop-filter:blur(2px);
+}
+.modal-box{
+  width:100%;max-width:760px;background:var(--panel);border:1px solid var(--border);
+  border-radius:4px;overflow:hidden;
+}
+.modal-head{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:12px 16px;border-bottom:1px solid var(--border);
+}
+.modal-head .cam-title{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--phosphor);}
+.close-x{background:none;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;line-height:1;}
+.modal-view{position:relative;background:var(--screen);overflow:hidden;height:340px;}
+.modal-view canvas{position:absolute;top:50%;left:50%;transform-origin:center;image-rendering:pixelated;width:100%;height:auto;max-width:480px;}
+.ptz-row{display:flex;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);}
+.ptz-row input[type=range]{flex:1;accent-color:var(--phosphor);}
+.modal-body{padding:16px;}
+.modal-msg{font-size:14px;color:var(--text-dim);text-align:center;padding:20px 0;}
+.field-block{margin-bottom:16px;}
+.field-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;display:block;}
+.opt-group{display:grid;gap:8px;}
+.opt{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);
+  border-radius:3px;cursor:pointer;font-size:13.5px;background:var(--panel-2);transition:border-color .15s ease;
+}
+.opt:hover{border-color:var(--phosphor-dim);}
+.opt input{accent-color:var(--phosphor);}
+.opt.selected{border-color:var(--phosphor);background:rgba(79,224,168,0.06);}
+#submit-report{
+  width:100%;padding:13px;border:none;border-radius:3px;background:var(--phosphor);
+  color:#052013;font-weight:700;font-family:'Space Grotesk',sans-serif;font-size:14px;cursor:pointer;margin-top:4px;
+}
+#submit-report:disabled{opacity:0.35;cursor:not-allowed;}
+#modal-close-only{
+  width:100%;padding:12px;border:1px solid var(--border);border-radius:3px;background:transparent;
+  color:var(--text-dim);font-family:'Space Grotesk',sans-serif;font-size:13.5px;cursor:pointer;
+}
+
+/* ---------- REPORT ---------- */
+#report-screen{display:none;min-height:100vh;align-items:center;justify-content:center;padding:24px;}
+.report-card{max-width:680px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:36px;}
+.badge-block{text-align:center;margin-bottom:26px;}
+.badge-name{font-size:26px;font-weight:700;color:var(--gold);margin:8px 0 4px;}
+.badge-score{font-family:'JetBrains Mono',monospace;color:var(--phosphor);font-size:15px;}
+.report-table{width:100%;border-collapse:collapse;margin:20px 0;font-size:12.5px;}
+.report-table th{
+  text-align:left;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--text-dim);
+  text-transform:uppercase;letter-spacing:0.06em;padding:6px 8px;border-bottom:1px solid var(--border);
+}
+.report-table td{padding:9px 8px;border-bottom:1px solid var(--border);}
+.tag-ok{color:var(--phosphor);}
+.tag-bad{color:var(--alarm);}
+#restart-btn{
+  width:100%;padding:15px;border:none;border-radius:3px;background:var(--gold);
+  color:#241a05;font-weight:700;font-family:'Space Grotesk',sans-serif;font-size:14.5px;cursor:pointer;margin-top:8px;
+}
+
+@media (max-width:820px){
+  #main-grid{grid-template-columns:1fr;}
+  .cam-grid{grid-template-columns:repeat(2,1fr);}
+}
+@media (max-width:520px){
+  .cam-grid{grid-template-columns:1fr;}
+  #topbar{padding:12px 14px;}
+  .stat-strip{gap:14px;}
+  .stat .value{font-size:13px;}
+  #main-grid{padding:12px;gap:12px;}
+  .start-card{padding:28px 22px;}
+  .start-card h1{font-size:23px;}
+  .modal-view{height:220px;}
+  .report-card{padding:24px 18px;}
+  .report-table{font-size:11px;}
+  .report-table th, .report-table td{padding:6px 4px;}
+}
+</style>
+</head>
+<body>
+
+<!-- START -->
+<div id="start-screen">
+  <div class="start-card">
+    <div class="eyebrow">INASEP · Operador CCTV</div>
+    <h1>Turno de Vigilancia — Sala de Control</h1>
+    <p class="sub">Vas a tomar el mando de una sala de monitoreo con 6 cámaras. Tu trabajo: detectar eventos sospechosos a tiempo, clasificarlos correctamente y aplicar el protocolo adecuado.</p>
+    <ul class="brief-list">
+      <li><span class="num">01</span> Observa la grilla completa. Cuando una cámara se marque en ámbar, hay actividad para revisar.</li>
+      <li><span class="num">02</span> Haz clic en la cámara para ampliarla y usar el control PTZ simulado (zoom / paneo).</li>
+      <li><span class="num">03</span> Clasifica el evento y elige el protocolo correcto. La velocidad y la precisión suman puntaje.</li>
+      <li><span class="num">04</span> Al cerrar el turno, recibes tu informe con nivel de operador.</li>
+    </ul>
+    <button id="start-btn">Iniciar Turno de Vigilancia</button>
+    <div class="start-foot">DURACIÓN APROX. 2 MIN · 4 INCIDENTES PROGRAMADOS</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="topbar">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <div class="brand-text">Sala de Control · <b>INASEP-CCTV</b></div>
+    </div>
+    <div class="stat-strip">
+      <div class="stat"><span class="label">Turno</span><span class="value" id="clock">00:00</span></div>
+      <div class="stat"><span class="label">Incidentes</span><span class="value" id="count">0/4</span></div>
+      <div class="stat"><span class="label">Puntaje</span><span class="value" id="score">0</span></div>
+    </div>
+  </div>
+
+  <div id="main-grid">
+    <div class="cam-grid" id="cam-grid"></div>
+    <div class="side-panel">
+      <div class="panel-box">
+        <div class="panel-title">Progreso del turno</div>
+        <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+        <p class="hint-text" style="margin-top:10px;">Las cámaras con borde ámbar tienen actividad sin revisar. Tienes tiempo limitado antes de que el incidente se dé por no atendido.</p>
+      </div>
+      <div class="panel-box" style="flex:1;">
+        <div class="panel-title">Bitácora de sala</div>
+        <div id="log-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="cam-title mono" id="modal-cam-title">CAM-01</span>
+      <button class="close-x" id="modal-close-x">✕</button>
+    </div>
+    <div class="modal-view">
+      <canvas id="modal-canvas" width="480" height="300"></canvas>
+    </div>
+    <div class="ptz-row">
+      <span>ZOOM PTZ</span>
+      <input type="range" id="zoom-slider" min="1" max="2.4" step="0.05" value="1">
+      <span id="zoom-val">1.0x</span>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- REPORT -->
+<div id="report-screen">
+  <div class="report-card">
+    <div class="badge-block">
+      <div class="eyebrow" style="text-align:center;">Informe de fin de turno</div>
+      <div class="badge-name" id="badge-name">—</div>
+      <div class="badge-score mono" id="badge-score">0 pts</div>
+    </div>
+    <table class="report-table">
+      <thead><tr><th>Cámara</th><th>Evento</th><th>Reacción</th><th>Clasif.</th><th>Protocolo</th><th>Pts</th></tr></thead>
+      <tbody id="report-body"></tbody>
+    </table>
+    <button id="restart-btn">Reiniciar Turno</button>
+  </div>
+</div>
+
+<script>
+const CAMS_META = [
+  {label:'CAM-01', zone:'RECEPCIÓN'},
+  {label:'CAM-02', zone:'BODEGA'},
+  {label:'CAM-03', zone:'ESTACIONAMIENTO'},
+  {label:'CAM-04', zone:'PASILLO NORTE'},
+  {label:'CAM-05', zone:'ACCESO TRASERO'},
+  {label:'CAM-06', zone:'SALA SERVIDORES'}
+];
+
+const TYPE_LABEL = {
+  acceso_restringido:'Acceso a zona restringida',
+  objeto_abandonado:'Objeto abandonado',
+  merodeo:'Merodeo / conducta sospechosa',
+  normal:'Actividad normal (ronda)'
+};
+const PROTO_LABEL = {
+  A:'Registrar en bitácora y reforzar vigilancia',
+  B:'Contactar de inmediato al guardia de turno',
+  C:'Aislar la zona y dar aviso a Carabineros'
+};
+const PROTO_MAP = { acceso_restringido:'B', objeto_abandonado:'C', merodeo:'A' };
+const WINDOW_S = 26;
+const EVENT_TIMES = [6, 28, 52, 76];
+
+function rand(a,b){ return a + Math.random()*(b-a); }
+function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function fmtClock(sec){ const m=Math.floor(sec/60), s=Math.floor(sec%60); return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }
+
+class CamSim{
+  constructor(index, canvas){
+    this.index=index; this.canvas=canvas; this.ctx=canvas.getContext('2d');
+    this.w=canvas.width; this.h=canvas.height;
+    this.meta=CAMS_META[index];
+    this.zone={x:this.w*0.66,y:this.h*0.09,w:this.w*0.30,h:this.h*0.30};
+    this.doorA={x:this.w*0.40,y:this.h*0.86};
+    this.doorB={x:this.w*0.60,y:this.h*0.86};
+    this.actors=[this.spawnActor(),this.spawnActor(),this.spawnActor()];
+    this.event=null;
+  }
+  spawnActor(){
+    const a={x:rand(30,this.w-30),y:rand(this.h*0.45,this.h-25),speed:rand(16,26),mode:'patrol',dwell:0};
+    this.pickTarget(a); return a;
+  }
+  pickTarget(a){ a.tx=rand(30,this.w-30); a.ty=rand(this.h*0.45,this.h-22); }
+  pickEdgeTarget(a){
+    const edges=[{x:-10,y:a.y},{x:this.w+10,y:a.y}];
+    const e=edges[Math.floor(rand(0,2))]; a.tx=e.x; a.ty=e.y;
+  }
+  triggerEvent(type){
+    const actor=this.actors[Math.floor(rand(0,this.actors.length))];
+    this.event={type, startTime:performance.now(), resolved:false, dropped:null};
+    if(type==='acceso_restringido'){ actor.mode='toZone'; actor.tx=this.zone.x+this.zone.w/2; actor.ty=this.zone.y+this.zone.h/2; }
+    else if(type==='objeto_abandonado'){ actor.mode='toDrop'; actor.tx=rand(50,this.w-50); actor.ty=rand(this.h*0.55,this.h-30); }
+    else if(type==='merodeo'){ actor.mode='loiter'; actor.loiterTo='B'; actor.tx=this.doorA.x; actor.ty=this.doorA.y; }
+    this.eventActor=actor;
+  }
+  update(dt){
+    for(const a of this.actors){
+      if(a.mode==='dwell'){
+        a.dwell-=dt;
+        if(a.dwell<=0){ a.dwell=rand(1.2,2.4); a.tx=this.zone.x+rand(10,this.zone.w-10); a.ty=this.zone.y+rand(10,this.zone.h-10); }
+        const dx=a.tx-a.x, dy=a.ty-a.y, dist=Math.hypot(dx,dy);
+        if(dist>1){ a.x+=(dx/dist)*10*dt; a.y+=(dy/dist)*10*dt; }
+        continue;
+      }
+      const dx=a.tx-a.x, dy=a.ty-a.y, dist=Math.hypot(dx,dy);
+      if(dist<4){
+        if(a.mode==='toZone'){ a.mode='dwell'; a.dwell=0; }
+        else if(a.mode==='toDrop'){ if(this.event){ this.event.dropped={x:a.x,y:a.y}; } a.mode='leaving'; this.pickEdgeTarget(a); }
+        else if(a.mode==='leaving'){ a.mode='patrol'; a.x=rand(30,this.w-30); this.pickTarget(a); }
+        else if(a.mode==='loiter'){
+          if(a.loiterTo==='B'){ a.loiterTo='A'; a.tx=this.doorB.x+rand(-6,6); a.ty=this.doorB.y+rand(-4,4); }
+          else { a.loiterTo='B'; a.tx=this.doorA.x+rand(-6,6); a.ty=this.doorA.y+rand(-4,4); }
+        } else { this.pickTarget(a); }
+      } else {
+        a.x+=(dx/dist)*a.speed*dt; a.y+=(dy/dist)*a.speed*dt;
+      }
+    }
+  }
+  drawBody(ctx,x,y,color){
+    ctx.fillStyle=color;
+    ctx.beginPath(); ctx.arc(x,y-11,4.2,0,Math.PI*2); ctx.fill();
+    ctx.fillRect(x-4.5,y-6,9,13);
+  }
+  draw(now){
+    const ctx=this.ctx, w=this.w, h=this.h;
+    ctx.clearRect(0,0,w,h);
+    const g=ctx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,'#0A1512'); g.addColorStop(1,'#050A07');
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='rgba(79,224,168,0.05)'; ctx.lineWidth=1;
+    for(let gx=0; gx<w; gx+=40){ ctx.beginPath(); ctx.moveTo(gx,h*0.42); ctx.lineTo(gx,h); ctx.stroke(); }
+    for(let gy=h*0.42; gy<h; gy+=30){ ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(w,gy); ctx.stroke(); }
+
+    ctx.save();
+    ctx.strokeStyle='rgba(255,180,84,0.5)'; ctx.lineWidth=2;
+    ctx.strokeRect(this.zone.x,this.zone.y,this.zone.w,this.zone.h);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(this.zone.x,this.zone.y,this.zone.w,this.zone.h); ctx.clip();
+    ctx.strokeStyle='rgba(255,180,84,0.18)'; ctx.lineWidth=6;
+    for(let i=-this.zone.h;i<this.zone.w;i+=14){
+      ctx.beginPath(); ctx.moveTo(this.zone.x+i,this.zone.y); ctx.lineTo(this.zone.x+i+this.zone.h,this.zone.y+this.zone.h); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.fillStyle='#FFB454'; ctx.font='8px JetBrains Mono, monospace';
+    ctx.fillText('ZONA RESTRINGIDA', this.zone.x+3, this.zone.y+10);
+    ctx.restore();
+
+    if(this.event && this.event.dropped){
+      ctx.fillStyle='#C9A15A';
+      ctx.fillRect(this.event.dropped.x-4, this.event.dropped.y-4, 8, 8);
+    }
+    for(const a of this.actors){ this.drawBody(ctx,a.x,a.y,'#8FB3A6'); }
+
+    ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,0,74,16);
+    ctx.fillStyle='#4FE0A8'; ctx.font='9px JetBrains Mono, monospace';
+    ctx.fillText(this.meta.label, 5, 11);
+
+    const t=new Date();
+    const stamp=String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0')+':'+String(t.getSeconds()).padStart(2,'0');
+    ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,h-16,64,16);
+    ctx.fillStyle='#6E8A7E'; ctx.fillText(stamp, 5, h-5);
+
+    const blink=Math.floor(now/500)%2===0;
+    ctx.fillStyle= blink? '#E8483A' : '#5a1f1a';
+    ctx.beginPath(); ctx.arc(w-12,10,4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.font='8px JetBrains Mono, monospace';
+    ctx.fillText('REC', w-38, 13);
+  }
+}
+
+class Simulator{
+  constructor(){
+    this.cams=[]; this.log=[]; this.score=0; this.resolved=0; this.total=4;
+    this.startTime=0; this.ended=false; this.activeIdx=null; this.pendingTimers=[];
+    this.audioCtx=null;
+  }
+  init(){
+    const grid=document.getElementById('cam-grid');
+    grid.innerHTML='';
+    this.cams=[];
+    for(let i=0;i<6;i++){
+      const tile=document.createElement('div');
+      tile.className='cam-tile'; tile.dataset.idx=i;
+      const canvas=document.createElement('canvas'); canvas.width=480; canvas.height=300;
+      const tag=document.createElement('div'); tag.className='tile-tag'; tag.textContent='⚠ ACTIVIDAD SIN REVISAR';
+      tile.appendChild(canvas); tile.appendChild(tag);
+      tile.addEventListener('click', ()=>this.openModal(i));
+      grid.appendChild(tile);
+      this.cams.push(new CamSim(i, canvas));
+    }
+  }
+  beep(freq){
+    try{
+      if(!this.audioCtx) this.audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      const o=this.audioCtx.createOscillator(); const g=this.audioCtx.createGain();
+      o.type='sine'; o.frequency.value=freq||880;
+      g.gain.setValueAtTime(0.06, this.audioCtx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime+0.35);
+      o.connect(g); g.connect(this.audioCtx.destination);
+      o.start(); o.stop(this.audioCtx.currentTime+0.35);
+    }catch(e){}
+  }
+  addLog(msg,cls){
+    const el=document.getElementById('log-list');
+    const entry=document.createElement('div');
+    entry.className='log-entry '+(cls||'');
+    const sec=(performance.now()-this.startTime)/1000;
+    entry.innerHTML='<span class="t">['+fmtClock(sec)+']</span>'+msg;
+    el.prepend(entry);
+  }
+  start(){
+    this.startTime=performance.now();
+    const camIdxs=shuffle([0,1,2,3,4,5]).slice(0,4);
+    const types=shuffle(['acceso_restringido','objeto_abandonado','merodeo','acceso_restringido']);
+    this.schedule = camIdxs.map((idx,i)=>({idx,type:types[i],time:EVENT_TIMES[i]}));
+    this.schedule.forEach(ev=>{
+      const timer1=setTimeout(()=>this.fireEvent(ev), ev.time*1000);
+      const timer2=setTimeout(()=>this.autoMiss(ev), (ev.time+WINDOW_S)*1000);
+      this.pendingTimers.push(timer1,timer2);
+    });
+    this.loop();
+  }
+  fireEvent(ev){
+    const cam=this.cams[ev.idx];
+    cam.triggerEvent(ev.type);
+    document.querySelector('.cam-tile[data-idx="'+ev.idx+'"]').classList.add('alert');
+    this.addLog('⚠ Actividad detectada — <b>'+cam.meta.label+'</b> ('+cam.meta.zone+')', 'warn');
+    this.beep(880);
+  }
+  autoMiss(ev){
+    const cam=this.cams[ev.idx];
+    if(cam.event && !cam.event.resolved){
+      cam.event.resolved=true;
+      this.logResult({cam, ev, points:0, reactionSec:WINDOW_S, classOk:false, protoOk:false, missed:true});
+    }
+  }
+  clearAlertTile(idx){
+    document.querySelector('.cam-tile[data-idx="'+idx+'"]').classList.remove('alert');
+  }
+  openModal(idx){
+    this.activeIdx=idx;
+    const cam=this.cams[idx];
+    document.getElementById('modal-cam-title').textContent=cam.meta.label+' · '+cam.meta.zone;
+    document.getElementById('modal-overlay').style.display='flex';
+    document.getElementById('zoom-slider').value=1;
+    document.getElementById('zoom-val').textContent='1.0x';
+    this.applyZoom(1);
+    const body=document.getElementById('modal-body');
+    if(!cam.event){
+      body.innerHTML='<div class="modal-msg">No hay incidente activo en esta cámara en este momento. Sigue observando la grilla.</div><button id="modal-close-only">Cerrar</button>';
+      document.getElementById('modal-close-only').onclick=()=>this.closeModal();
+      return;
+    }
+    if(cam.event.resolved){
+      body.innerHTML='<div class="modal-msg">Este incidente ya fue procesado o el tiempo de reacción expiró.</div><button id="modal-close-only">Cerrar</button>';
+      document.getElementById('modal-close-only').onclick=()=>this.closeModal();
+      return;
+    }
+    body.innerHTML=`
+      <div class="field-block">
+        <span class="field-label">Clasificación del evento</span>
+        <div class="opt-group" id="class-opts">
+          ${Object.entries(TYPE_LABEL).map(([k,v])=>`<label class="opt"><input type="radio" name="cls" value="${k}"> ${v}</label>`).join('')}
+        </div>
+      </div>
+      <div class="field-block">
+        <span class="field-label">Protocolo a aplicar</span>
+        <div class="opt-group" id="proto-opts">
+          ${Object.entries(PROTO_LABEL).map(([k,v])=>`<label class="opt"><input type="radio" name="proto" value="${k}"> ${v}</label>`).join('')}
+        </div>
+      </div>
+      <button id="submit-report" disabled>Confirmar Reporte</button>
+    `;
+    const radios=body.querySelectorAll('input[type=radio]');
+    radios.forEach(r=>r.addEventListener('change',()=>{
+      body.querySelectorAll('.opt').forEach(o=>o.classList.remove('selected'));
+      body.querySelectorAll('input:checked').forEach(c=>c.closest('.opt').classList.add('selected'));
+      const cls=body.querySelector('input[name=cls]:checked');
+      const proto=body.querySelector('input[name=proto]:checked');
+      document.getElementById('submit-report').disabled=!(cls&&proto);
+    }));
+    document.getElementById('submit-report').onclick=()=>this.submitReport(idx);
+  }
+  applyZoom(z){
+    const c=document.getElementById('modal-canvas');
+    c.style.transform='translate(-50%,-50%) scale('+z+')';
+  }
+  submitReport(idx){
+    const cam=this.cams[idx];
+    const body=document.getElementById('modal-body');
+    const cls=body.querySelector('input[name=cls]:checked').value;
+    const proto=body.querySelector('input[name=proto]:checked').value;
+    const reactionSec=(performance.now()-cam.event.startTime)/1000;
+    const classOk=cls===cam.event.type;
+    const protoOk=proto===PROTO_MAP[cam.event.type];
+    const reactionPts=Math.max(20, Math.round(100-(Math.min(reactionSec,WINDOW_S)/WINDOW_S)*80));
+    const classPts=classOk?50:-20;
+    const protoPts=protoOk?50:-20;
+    const points=Math.max(0, reactionPts+classPts+protoPts);
+    cam.event.resolved=true;
+    this.logResult({cam, ev:{type:cam.event.type,idx}, points, reactionSec, classOk, protoOk, missed:false});
+    this.closeModal();
+  }
+  logResult({cam, ev, points, reactionSec, classOk, protoOk, missed}){
+    this.resolved++;
+    this.score+=points;
+    this.clearAlertTile(ev.idx!==undefined?ev.idx:cam.index);
+    document.getElementById('score').textContent=this.score;
+    document.getElementById('count').textContent=this.resolved+'/'+this.total;
+    document.getElementById('progress-fill').style.width=(this.resolved/this.total*100)+'%';
+    if(missed){
+      this.addLog('✖ Incidente NO atendido a tiempo — '+cam.meta.label, 'bad');
+    } else {
+      this.addLog((classOk&&protoOk?'✔':'●')+' Incidente resuelto — '+cam.meta.label+' · '+points+' pts', classOk&&protoOk?'good':'warn');
+    }
+    if(!this.reportRows) this.reportRows=[];
+    this.reportRows.push({
+      cam:cam.meta.label, type:TYPE_LABEL[ev.type], reaction: missed?'—':reactionSec.toFixed(1)+'s',
+      classOk, protoOk, points, missed
+    });
+    if(this.resolved>=this.total && !this.ended){
+      this.ended=true;
+      setTimeout(()=>this.showReport(), 1200);
+    }
+  }
+  closeModal(){
+    document.getElementById('modal-overlay').style.display='none';
+    this.activeIdx=null;
+  }
+  showReport(){
+    document.getElementById('app').style.display='none';
+    document.getElementById('report-screen').style.display='flex';
+    const tbody=document.getElementById('report-body');
+    tbody.innerHTML=this.reportRows.map(r=>`
+      <tr>
+        <td>${r.cam}</td>
+        <td>${r.type}</td>
+        <td>${r.reaction}</td>
+        <td class="${r.missed?'tag-bad':(r.classOk?'tag-ok':'tag-bad')}">${r.missed?'No atendido':(r.classOk?'Correcta':'Incorrecta')}</td>
+        <td class="${r.missed?'tag-bad':(r.protoOk?'tag-ok':'tag-bad')}">${r.missed?'—':(r.protoOk?'Correcto':'Incorrecto')}</td>
+        <td>${r.points}</td>
+      </tr>`).join('');
+    let badge='REQUIERE REFORZAR PROTOCOLO', color='var(--alarm)';
+    if(this.score>=650){ badge='ÁGUILA — Operador Élite'; }
+    else if(this.score>=450){ badge='HALCÓN — Operador Competente'; }
+    else if(this.score>=250){ badge='VIGÍA — Nivel Básico Aprobado'; }
+    document.getElementById('badge-name').textContent=badge;
+    document.getElementById('badge-score').textContent=this.score+' / 800 pts';
+  }
+  loop(){
+    const now=performance.now();
+    if(!this.lastTime) this.lastTime=now;
+    const dt=Math.min(0.05,(now-this.lastTime)/1000);
+    this.lastTime=now;
+    for(const cam of this.cams){ cam.update(dt); cam.draw(now); }
+    document.getElementById('clock').textContent=fmtClock((now-this.startTime)/1000);
+    if(this.activeIdx!==null){
+      const cam=this.cams[this.activeIdx];
+      const mc=document.getElementById('modal-canvas');
+      const mctx=mc.getContext('2d');
+      mctx.clearRect(0,0,mc.width,mc.height);
+      mctx.drawImage(cam.canvas,0,0);
+    }
+    if(!this.ended) requestAnimationFrame(()=>this.loop());
+  }
+}
+
+const sim=new Simulator();
+
+document.getElementById('start-btn').addEventListener('click', ()=>{
+  document.getElementById('start-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  sim.init();
+  sim.start();
+});
+document.getElementById('modal-close-x').addEventListener('click', ()=>sim.closeModal());
+document.getElementById('zoom-slider').addEventListener('input', (e)=>{
+  const z=parseFloat(e.target.value);
+  document.getElementById('zoom-val').textContent=z.toFixed(1)+'x';
+  sim.applyZoom(z);
+});
+document.getElementById('restart-btn').addEventListener('click', ()=>{
+  location.reload();
+});
+</script>
+</body>
+</html>
