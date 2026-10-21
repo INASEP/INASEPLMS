@@ -191,6 +191,22 @@ window.addEventListener('load', async () => {
       }
     }
 
+    // Fecha de término del curso (documentos nuevos); modalidad y resultado
+    let fechaCursoRow = '';
+    if (data.courseDate) {
+      try {
+        const dc = data.courseDate.toDate ? data.courseDate.toDate() : new Date(data.courseDate);
+        fechaCursoRow = `<p><strong>🗓️ Término del curso:</strong> ${dc.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}</p>`;
+      } catch (e) { fechaCursoRow = ''; }
+    }
+    const modalidades = { presencial: 'Presencial', online: 'Online (plataforma INASEP)' };
+    const modalidadRow = modalidades[data.modality]
+      ? `<p><strong>🏫 Modalidad:</strong> ${modalidades[data.modality]}</p>` : '';
+    const tienePuntaje = data.percentage !== null && data.percentage !== undefined && data.percentage !== '';
+    const puntajeRow = tienePuntaje
+      ? `<p><strong>📊 Puntaje:</strong> ${escapeHtml(String(data.percentage))}%${data.score ? ' (' + escapeHtml(String(data.score)) + ')' : ''}</p>`
+      : `<p><strong>📊 Resultado:</strong> Aprobado</p>`;
+
     content.innerHTML = `
       <div class="doc-icon">${docIcon}</div>
       <div class="valid-badge">✅ Documento Válido y Verificado</div>
@@ -199,8 +215,10 @@ window.addEventListener('load', async () => {
         <p><strong>👤 Alumno:</strong> ${escapeHtml(data.studentName)}</p>
         <p><strong>📄 RUT:</strong> ${escapeHtml(data.studentRut) || 'No especificado'}</p>
         <p><strong>📘 Curso:</strong> ${escapeHtml(data.courseName)}</p>
-        <p><strong>📊 Puntaje:</strong> ${escapeHtml(String(data.percentage))}% (${data.score !== undefined ? escapeHtml(String(data.score)) : 'N/A'})</p>
-        <p><strong>⏱️ Carga Horaria:</strong> ${escapeHtml(String(data.hours || 120))} horas</p>
+        ${modalidadRow}
+        ${puntajeRow}
+        <p><strong>⏱️ Carga Horaria:</strong> ${data.hours ? escapeHtml(String(data.hours)) + ' horas' : 'No especificada'}</p>
+        ${fechaCursoRow}
         <p><strong>📅 Fecha de emisión:</strong> ${fechaEmision}</p>
         <p><strong>🆔 Código:</strong> <code style="background:#eef6f0;padding:2px 6px;border-radius:4px;font-size:0.85rem">${escapeHtml(tokenId)}</code></p>
       </div>
