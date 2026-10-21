@@ -109,6 +109,7 @@ button:disabled { background: #a0b8a8; cursor: not-allowed; transform: none; }
 .m-status { flex: 1.4; min-width: 150px; font-size: 0.8rem; font-weight: 600; }
 .m-ok { color: #27ae60; } .m-err { color: #c0392b; } .m-done { color: #2a5536; }
 .m-row button { padding: 9px 16px; }
+.m-okbox { background: #e8f6ec; border: 1px solid #b7dfc2; color: #1e6b3a; padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; margin-top: 12px; }
 .m-del { background: transparent !important; color: #c0392b !important; border: 2px solid #f0d0cc !important; padding: 8px 12px !important; }
 </style>
 </head>
@@ -153,9 +154,17 @@ button:disabled { background: #a0b8a8; cursor: not-allowed; transform: none; }
         <label>⏱️ Horas</label>
         <input type="number" id="mHours" min="1" max="999" step="1" placeholder="36">
       </div>
-      <div class="form-group" style="flex:1;min-width:170px">
-        <label>📅 Fecha de término</label>
-        <input type="date" id="mDate">
+      <div class="form-group" style="flex:1.4;min-width:240px">
+        <label>📅 Mes en que se realizó</label>
+        <div style="display:flex;gap:8px">
+          <select id="mMonth" style="flex:2">
+            <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+            <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+            <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+          <input type="number" id="mYear" min="2020" max="2100" step="1" style="flex:1;min-width:90px">
+        </div>
       </div>
     </div>
     <div class="form-group" style="margin-top:16px">
@@ -166,9 +175,28 @@ button:disabled { background: #a0b8a8; cursor: not-allowed; transform: none; }
     <div class="form-row" style="margin-top:10px">
       <div><button type="button" id="mLoadBtn" class="btn-outline">⬇️ Cargar nómina</button></div>
       <div><button type="button" id="mAddBtn" class="btn-outline">+ Agregar persona</button></div>
+      <div><button type="button" id="mSaveBtn" class="btn-outline">💾 Guardar nómina</button></div>
       <div><button type="button" id="mClearBtn" class="btn-outline">Limpiar</button></div>
     </div>
+    <div id="manualOk" class="m-okbox hidden"></div>
     <div id="mRows" style="margin-top:16px"></div>
+
+    <div style="margin-top:26px;padding-top:18px;border-top:2px solid #e5f0e8">
+      <h3 style="font-size:1.05rem;color:#1e3d28">📚 Nóminas guardadas</h3>
+      <p class="m-hint">Aquí quedan las personas de cursos presenciales, ordenadas por curso y mes. Búscalas para volver a emitir su diploma y certificado (mismo QR).</p>
+      <div class="form-row" style="margin-top:10px">
+        <div class="form-group" style="flex:2;min-width:240px">
+          <label>Curso</label>
+          <select id="mSavedCourse"><option value="">Todos los cursos</option></select>
+        </div>
+        <div class="form-group" style="flex:2;min-width:200px">
+          <label>Buscar por nombre o RUT</label>
+          <input type="text" id="mSavedSearch" placeholder="Ej: Pérez o 12.345.678-5">
+        </div>
+        <div style="align-self:flex-end"><button type="button" id="mSavedLoadBtn" class="btn-outline">🔄 Cargar lista</button></div>
+      </div>
+      <div id="mSavedList" style="margin-top:8px"></div>
+    </div>
   </div>
 
   <div id="previewDiplomaContainer" class="preview-area hidden">
@@ -526,8 +554,10 @@ async function generateBothDocuments(opts = {}) {
 
   const hoy = course.date instanceof Date ? course.date : new Date();
   const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-  const fechaStr = `${hoy.getDate()} de ${meses[hoy.getMonth()]} de ${hoy.getFullYear()}`;
-  const fechaStrCert = `Quilpué, ${String(hoy.getDate()).padStart(2,'0')} de ${meses[hoy.getMonth()]} de ${hoy.getFullYear()}`;
+  // Si solo se conoce el mes del curso, la fecha al pie es la de emisión (hoy); el mes del curso va en el texto
+  const fechaDoc = course.monthOnly ? new Date() : hoy;
+  const fechaStr = `${fechaDoc.getDate()} de ${meses[fechaDoc.getMonth()]} de ${fechaDoc.getFullYear()}`;
+  const fechaStrCert = `Quilpué, ${String(fechaDoc.getDate()).padStart(2,'0')} de ${meses[fechaDoc.getMonth()]} de ${fechaDoc.getFullYear()}`;
 
   const qrCaption = opts.manual ? 'Curso Presencial' : 'Plataforma Online<br>Nueva Ley 21.659';
 
@@ -540,10 +570,15 @@ async function generateBothDocuments(opts = {}) {
     percentage: tienePuntaje ? course.percentage : null,
     score: course.score || null,
     issuedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    courseDate: firebase.firestore.Timestamp.fromDate(hoy),
+    ...(course.monthOnly
+      ? { courseMonth: hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') }
+      : { courseDate: firebase.firestore.Timestamp.fromDate(hoy) }),
     hours: horas,
     modality: opts.manual ? 'presencial' : 'online',
-    source: opts.manual ? 'manual' : 'lms'
+    source: opts.manual ? 'manual' : 'lms',
+    diplomaToken: diplomaToken,
+    certToken: certToken,
+    rosterId: opts.rosterId || null
   };
 
   // DIPLOMA
@@ -884,18 +919,22 @@ function manualRemove(i) {
   renderManualRows();
 }
 
+const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
 function leerCursoManual() {
   const title = $('mCourseName').value.trim().replace(/\s+/g, ' ');
   const hours = Number($('mHours').value);
-  const dateStr = $('mDate').value;
+  const month = Number($('mMonth').value);
+  const year  = Number($('mYear').value);
   if (title.length < 5) { showError('⚠️ Escribe el nombre del curso.'); return null; }
   if (!Number.isInteger(hours) || hours < 1 || hours > 999) { showError('⚠️ Indica la carga horaria en horas (número entero).'); return null; }
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
-  if (!m || Number(m[1]) < 2020) { showError('⚠️ Indica la fecha de término del curso.'); return null; }
-  const date = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
-  if (date.getTime() > Date.now() + 24 * 3600 * 1000) { showError('⚠️ La fecha de término no puede ser futura.'); return null; }
+  if (!Number.isInteger(month) || month < 1 || month > 12) { showError('⚠️ Elige el mes en que se realizó el curso.'); return null; }
+  if (!Number.isInteger(year) || year < 2020 || year > 2100) { showError('⚠️ Indica el año en que se realizó el curso.'); return null; }
+  const now = new Date();
+  if (year * 12 + month > now.getFullYear() * 12 + (now.getMonth() + 1)) { showError('⚠️ El mes del curso no puede ser futuro.'); return null; }
   const courseId = Object.keys(coursesCache).find(k => (coursesCache[k].title || '') === title) || null;
-  return { title, hours, date, courseId };
+  const ym = year + '-' + String(month).padStart(2, '0');
+  return { title, hours, month, year, ym, date: new Date(year, month - 1, 1, 12, 0, 0), courseId };
 }
 
 async function emitirManual(i) {
@@ -908,23 +947,229 @@ async function emitirManual(i) {
   const err = validarFila(row, i);
   if (err) { showError('⚠️ ' + (row.name || 'Fila ' + (i + 1)) + ': ' + err + '.'); return; }
 
+  const rut = normalizarRut(row.rut);
+  const rosterId = rosterIdFor(cfg, rut);
+
+  // Si esta persona ya está guardada en este curso y mes, se reutiliza su QR (no se duplica)
+  try {
+    const snap = await db.collection('presenciales').doc(rosterId).get();
+    if (snap.exists && snap.data().tokens && !row.tokens) row.tokens = snap.data().tokens;
+  } catch (e) { /* sin acceso a la nómina guardada: se emite igual */ }
+
   const pctTxt = String(row.pct).trim();
-  selectedStudent = { uid: null, name: row.name.trim(), rut: normalizarRut(row.rut), email: '' };
+  selectedStudent = { uid: null, name: row.name.trim(), rut: rut, email: '' };
   selectedCourseResult = {
     courseId: cfg.courseId,
     courseTitle: cfg.title,
     percentage: pctTxt === '' ? null : Math.round(Number(pctTxt.replace(',', '.'))),
     score: null,
     date: cfg.date,
+    monthOnly: true,
     hours: cfg.hours
   };
-  await generateBothDocuments({ manual: true, tokens: row.tokens });
-  if (_registroOk) {
-    row.tokens = { dip: diplomaToken, cert: certToken };   // al volver a emitir se mantiene el mismo QR
-    row.emitted = true;
-    row.rut = selectedStudent.rut;
-    renderManualRows();
+  await generateBothDocuments({ manual: true, tokens: row.tokens, rosterId });
+  if (!_registroOk) return;
+
+  row.tokens = { dip: diplomaToken, cert: certToken };   // al volver a emitir se mantiene el mismo QR
+  row.emitted = true;
+  row.rut = rut;
+  try {
+    await saveRosterRow(row, cfg, { tokens: row.tokens, emitted: true });
+  } catch (e) {
+    showError('✅ Los documentos quedaron emitidos y verificables, pero NO se pudo guardar a la persona en la nómina del curso (' + (e.message || e.code) + '). Si dice permisos, publica las reglas nuevas de Firestore.');
   }
+  renderManualRows();
+}
+
+// ═══════════════════════════════════════════════════════════
+// NÓMINAS GUARDADAS (colección "presenciales")
+// Un registro por persona + curso + mes. Sirve para buscarla después y reemitir con el mismo QR.
+// ═══════════════════════════════════════════════════════════
+let savedCache = [];
+let savedLoaded = false;
+
+function slugCurso(t) {
+  return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'curso';
+}
+
+function rosterIdFor(cfg, rutFormateado) {
+  const rutKey = String(rutFormateado).replace(/[^0-9K]/g, '');
+  return (cfg.courseId || slugCurso(cfg.title)) + '_' + cfg.ym.replace('-', '') + '_' + rutKey;
+}
+
+async function saveRosterRow(row, cfg, extra) {
+  const rut = normalizarRut(row.rut);
+  const id = rosterIdFor(cfg, rut);
+  const ref = db.collection('presenciales').doc(id);
+  const snap = await ref.get();
+  const prev = snap.exists ? snap.data() : null;
+  const tokens = (extra && extra.tokens) || row.tokens || (prev && prev.tokens) || null;
+  const pctTxt = String(row.pct).trim();
+  const data = {
+    courseName: cfg.title,
+    courseId: cfg.courseId || null,
+    courseMonth: cfg.ym,
+    hours: cfg.hours,
+    name: row.name.trim(),
+    rut: rut,
+    pct: pctTxt === '' ? null : Math.round(Number(pctTxt.replace(',', '.'))),
+    tokens: tokens,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  if (!prev) data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+  if (extra && extra.emitted) data.emittedAt = firebase.firestore.FieldValue.serverTimestamp();
+  await ref.set(data, { merge: true });
+  row.id = id;
+  if (tokens) row.tokens = tokens;
+  if (savedLoaded) {
+    const rec = Object.assign({ id }, prev || {}, data);
+    const k = savedCache.findIndex(x => x.id === id);
+    if (k === -1) savedCache.push(rec); else savedCache[k] = rec;
+    fillSavedCourses();
+    renderSaved();
+  }
+  return id;
+}
+
+async function guardarNomina() {
+  if (!_adminVerified) { showError('⛔ Acceso no autorizado.'); return; }
+  clearError();
+  if (!manualRows.length) { showError('⚠️ No hay personas en la nómina.'); return; }
+  const cfg = leerCursoManual();
+  if (!cfg) return;
+  let ok = 0, omitidas = 0, fallo = null;
+  for (let i = 0; i < manualRows.length; i++) {
+    if (validarFila(manualRows[i], i)) { omitidas++; continue; }
+    try { await saveRosterRow(manualRows[i], cfg, {}); ok++; }
+    catch (e) { fallo = e; break; }
+  }
+  if (fallo) {
+    showError('⚠️ No se pudo guardar la nómina (' + (fallo.message || fallo.code) + '). Si dice permisos, publica las reglas nuevas de Firestore.');
+    return;
+  }
+  renderManualRows();
+  showOk('✅ ' + ok + ' persona(s) guardada(s) en «' + cfg.title + '» (' + MESES_ES[cfg.month - 1] + ' ' + cfg.year + ').' +
+    (omitidas ? ' ' + omitidas + ' con errores no se guardaron.' : ''));
+}
+
+function showOk(msg) {
+  const el = $('manualOk');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  clearTimeout(showOk._t);
+  showOk._t = setTimeout(() => el.classList.add('hidden'), 8000);
+}
+
+function normTxt(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[.\-\s]/g, '');
+}
+
+function cursoKey(rec) { return rec.courseName + '||' + rec.courseMonth; }
+function cursoLabel(rec) {
+  const p = String(rec.courseMonth || '').split('-');
+  return rec.courseName + ' — ' + (MESES_ES[Number(p[1]) - 1] || '?') + ' ' + p[0];
+}
+
+async function cargarGuardados() {
+  const box = $('mSavedList');
+  box.innerHTML = '<p class="m-hint">Cargando…</p>';
+  try {
+    const snap = await db.collection('presenciales').get();
+    savedCache = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    savedLoaded = true;
+  } catch (err) {
+    box.innerHTML = '';
+    showError('⚠️ No se pudieron leer las nóminas guardadas (' + (err.message || err.code) + '). Si dice permisos, publica las reglas nuevas de Firestore.');
+    return;
+  }
+  fillSavedCourses();
+  renderSaved();
+}
+
+function fillSavedCourses() {
+  const sel = $('mSavedCourse');
+  const actual = sel.value;
+  const claves = {};
+  savedCache.forEach(r => { claves[cursoKey(r)] = r; });
+  const items = Object.keys(claves).sort((a, b) => (claves[b].courseMonth || '').localeCompare(claves[a].courseMonth || '') || a.localeCompare(b));
+  sel.innerHTML = '<option value="">Todos los cursos</option>';
+  items.forEach(k => {
+    const n = savedCache.filter(r => cursoKey(r) === k).length;
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = cursoLabel(claves[k]) + ' (' + n + ')';
+    sel.appendChild(o);
+  });
+  if (items.includes(actual)) sel.value = actual;
+}
+
+function savedFiltrados() {
+  const k = $('mSavedCourse').value;
+  const q = normTxt($('mSavedSearch').value);
+  return savedCache
+    .filter(r => (!k || cursoKey(r) === k) && (!q || normTxt(r.name).includes(q) || normTxt(r.rut).includes(q)))
+    .sort((a, b) => (b.courseMonth || '').localeCompare(a.courseMonth || '') || String(a.name).localeCompare(String(b.name), 'es'));
+}
+
+function renderSaved() {
+  const box = $('mSavedList');
+  if (!savedCache.length) { box.innerHTML = '<p class="m-hint">Aún no hay personas guardadas.</p>'; return; }
+  const lista = savedFiltrados();
+  const k = $('mSavedCourse').value;
+  box.innerHTML =
+    '<div class="m-summary">' + lista.length + ' persona(s)' +
+    (k && lista.length ? ' · <a href="#" onclick="cargarCursoCompleto();return false;" style="color:#2a5536">Cargar todo este curso en la nómina</a>' : '') + '</div>' +
+    (lista.length ? lista.map(r => `
+      <div class="m-row">
+        <span class="m-name" style="font-size:.9rem"><b>${escapeHtml(r.name)}</b><br><span style="color:#6b8a73;font-size:.8rem">${escapeHtml(cursoLabel(r))}</span></span>
+        <span class="m-rut" style="font-size:.88rem">${escapeHtml(r.rut)}</span>
+        <span class="m-status ${r.tokens ? 'm-done' : 'm-ok'}">${r.tokens ? '✅ Emitido' : 'Pendiente de emitir'}</span>
+        <button type="button" class="btn-outline" onclick="cargarGuardado('${escapeHtml(r.id)}')">📥 Cargar</button>
+      </div>`).join('') : '<p class="m-hint">Nadie coincide con la búsqueda.</p>');
+}
+
+function formCoincide(rec) {
+  const p = String(rec.courseMonth || '').split('-');
+  return $('mCourseName').value.trim().replace(/\s+/g, ' ') === rec.courseName &&
+         Number($('mMonth').value) === Number(p[1]) && Number($('mYear').value) === Number(p[0]);
+}
+
+function ponerCursoEnFormulario(rec) {
+  const p = String(rec.courseMonth || '').split('-');
+  $('mCourseName').value = rec.courseName;
+  $('mHours').value = rec.hours;
+  $('mMonth').value = String(Number(p[1]));
+  $('mYear').value = p[0];
+}
+
+function filaDesdeRegistro(rec) {
+  return { name: rec.name, rut: rec.rut, pct: rec.pct == null ? '' : String(rec.pct), tokens: rec.tokens || null, emitted: !!rec.tokens, id: rec.id };
+}
+
+function cargarGuardado(id) {
+  const rec = savedCache.find(r => r.id === id);
+  if (!rec) return;
+  if (manualRows.length && !formCoincide(rec)) {
+    if (!confirm('Esta persona es de otro curso o mes. Se reemplazará la nómina que hay en pantalla (lo ya guardado no se pierde). ¿Continuar?')) return;
+    manualRows = [];
+  }
+  ponerCursoEnFormulario(rec);
+  if (!manualRows.some(r => normalizarRut(r.rut) === rec.rut)) manualRows.push(filaDesdeRegistro(rec));
+  clearError();
+  renderManualRows();
+  $('mRows').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function cargarCursoCompleto() {
+  const k = $('mSavedCourse').value;
+  const recs = savedCache.filter(r => cursoKey(r) === k);
+  if (!recs.length) return;
+  if (manualRows.length && !confirm('Se reemplazará la nómina que hay en pantalla (lo ya guardado no se pierde). ¿Continuar?')) return;
+  ponerCursoEnFormulario(recs[0]);
+  manualRows = recs.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'es')).map(filaDesdeRegistro);
+  clearError();
+  renderManualRows();
 }
 
 $('mCourseName').addEventListener('input', mCourseChanged);
@@ -946,6 +1191,15 @@ $('mClearBtn').addEventListener('click', () => {
   renderManualRows();
 });
 
+$('mSaveBtn').addEventListener('click', guardarNomina);
+$('mSavedLoadBtn').addEventListener('click', cargarGuardados);
+$('mSavedCourse').addEventListener('change', renderSaved);
+$('mSavedSearch').addEventListener('input', renderSaved);
+(function () {
+  const hoy = new Date();
+  $('mMonth').value = String(hoy.getMonth() + 1);
+  $('mYear').value = String(hoy.getFullYear());
+})();
 </script>
 </body>
 </html>
