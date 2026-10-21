@@ -199,6 +199,13 @@ window.addEventListener('load', async () => {
         fechaCursoRow = `<p><strong>🗓️ Término del curso:</strong> ${dc.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}</p>`;
       } catch (e) { fechaCursoRow = ''; }
     }
+    if (!fechaCursoRow && data.courseMonth) {
+      const pm = String(data.courseMonth).split('-');
+      const nombresMes = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      if (nombresMes[Number(pm[1]) - 1]) {
+        fechaCursoRow = `<p><strong>🗓️ Mes de realización:</strong> ${nombresMes[Number(pm[1]) - 1]} de ${escapeHtml(pm[0])}</p>`;
+      }
+    }
     const modalidades = { presencial: 'Presencial', online: 'Online (plataforma INASEP)' };
     const modalidadRow = modalidades[data.modality]
       ? `<p><strong>🏫 Modalidad:</strong> ${modalidades[data.modality]}</p>` : '';
