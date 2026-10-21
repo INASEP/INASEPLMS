@@ -96,6 +96,20 @@ button:disabled { background: #a0b8a8; cursor: not-allowed; transform: none; }
   .cert-template:not(.no-transform) { transform: scale(0.55); transform-origin: top center; }
 }
 .no-transform { transform: none !important; transform-origin: top left !important; }
+.form-group textarea { width: 100%; padding: 12px 14px; border: 2px solid #dee8e0; border-radius: 14px; font-family: inherit; font-size: 0.9rem; background: #fbfefc; resize: vertical; }
+.form-group textarea:focus { outline: none; border-color: #4a8c5c; }
+.m-hint { font-size: 0.82rem; color: #4a6651; margin-top: 6px; line-height: 1.5; }
+.m-summary { font-size: 0.85rem; font-weight: 600; color: #1e3d28; margin: 4px 0 10px; }
+.m-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid #e5f0e8; }
+.m-in { padding: 10px 12px; border: 2px solid #dee8e0; border-radius: 12px; font-family: inherit; font-size: 0.88rem; background: #fbfefc; }
+.m-in:focus { outline: none; border-color: #4a8c5c; }
+.m-name { flex: 3; min-width: 220px; }
+.m-rut { flex: 1.2; min-width: 130px; }
+.m-pct { flex: 0.6; min-width: 80px; max-width: 100px; }
+.m-status { flex: 1.4; min-width: 150px; font-size: 0.8rem; font-weight: 600; }
+.m-ok { color: #27ae60; } .m-err { color: #c0392b; } .m-done { color: #2a5536; }
+.m-row button { padding: 9px 16px; }
+.m-del { background: transparent !important; color: #c0392b !important; border: 2px solid #f0d0cc !important; padding: 8px 12px !important; }
 </style>
 </head>
 <body>
@@ -124,6 +138,37 @@ button:disabled { background: #a0b8a8; cursor: not-allowed; transform: none; }
       <div id="resultsContent"></div>
       <button id="loadMoreBtn" class="btn-loadmore hidden">⬇️ Cargar 5 más</button>
     </div>
+  </div>
+
+  <div class="search-panel hidden" id="manualPanel">
+    <h2>✍️ Nómina manual — cursos presenciales</h2>
+    <p class="m-hint">Para personas que no están en el LMS. Cada una recibe su diploma y su certificado con QR propio, y se pueden verificar en línea igual que los del LMS.</p>
+    <div class="form-row">
+      <div class="form-group" style="flex:3;min-width:260px">
+        <label>📘 Nombre del curso</label>
+        <input type="text" id="mCourseName" list="mCourseList" maxlength="150" autocomplete="off" placeholder="Ej: CURSO DE TECNICAS DE ASEO Y LIMPIEZA INDUSTRIAL">
+        <datalist id="mCourseList"></datalist>
+      </div>
+      <div class="form-group" style="flex:0.6;min-width:110px">
+        <label>⏱️ Horas</label>
+        <input type="number" id="mHours" min="1" max="999" step="1" placeholder="36">
+      </div>
+      <div class="form-group" style="flex:1;min-width:170px">
+        <label>📅 Fecha de término</label>
+        <input type="date" id="mDate">
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:16px">
+      <label>📋 Pegar nómina (una persona por línea: Nombre ; RUT ; Nota opcional)</label>
+      <textarea id="mPaste" rows="4" placeholder="Juan Pérez Soto;12.345.678-5;85&#10;María González Díaz;9.876.543-3"></textarea>
+      <div class="m-hint">Sirve pegar directo desde Excel. Si no hay nota, el documento dice que finalizó el curso sin mencionar puntaje.</div>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <div><button type="button" id="mLoadBtn" class="btn-outline">⬇️ Cargar nómina</button></div>
+      <div><button type="button" id="mAddBtn" class="btn-outline">+ Agregar persona</button></div>
+      <div><button type="button" id="mClearBtn" class="btn-outline">Limpiar</button></div>
+    </div>
+    <div id="mRows" style="margin-top:16px"></div>
   </div>
 
   <div id="previewDiplomaContainer" class="preview-area hidden">
@@ -172,6 +217,9 @@ let selectedStudent = null;
 let selectedCourseResult = null;
 let diplomaToken = null;
 let certToken = null;
+let courseHoursCache = {};   // courseId → horas (para no preguntar dos veces)
+let coursesCache = {};       // courseId → datos del curso del LMS
+let _registroOk = false;     // true cuando ambos documentos quedaron registrados para verificación
 
 let allResults = [];
 let filteredResults = [];
@@ -203,6 +251,7 @@ auth.onAuthStateChanged(async (user) => {
     const userDoc = await db.collection('users').doc(user.uid).get();
     if (userDoc.exists && userDoc.data().role === 'admin') {
       _adminVerified = true;
+      $('manualPanel').classList.remove('hidden');
       $('authStatus').classList.add('hidden');
       $('searchBtn').disabled = false;
       await loadCourses();
@@ -230,11 +279,13 @@ async function loadCourses() {
     const select = $('courseFilter');
     snapshot.forEach(doc => {
       const data = doc.data();
+      coursesCache[doc.id] = data;
       const option = document.createElement('option');
       option.value = doc.id;
       option.textContent = data.title || 'Curso sin nombre';
       select.appendChild(option);
     });
+    fillManualCourseList();
   } catch (err) {
     console.error('Error cargando cursos:', err);
   }
@@ -294,6 +345,7 @@ async function loadInitialData() {
         email: user.email || '',
         courseId: result.courseId,
         courseTitle: course.title || 'Curso',
+      courseHours: course.hours,
         percentage: result.percentage,
         score: result.score + '/' + result.total,
         resultId: result.resultId,
@@ -372,6 +424,7 @@ function renderPage() {
       data-email="${escapeHtml(r.email)}"
       data-courseid="${escapeHtml(r.courseId)}"
       data-coursetitle="${escapeHtml(r.courseTitle)}"
+      data-coursehours="${r.courseHours ? Number(r.courseHours) : ''}"
       data-percentage="${r.percentage}"
       data-score="${escapeHtml(r.score)}"
       data-finisheddate="${r.finishedDate ? r.finishedDate.toISOString() : ''}">
@@ -426,6 +479,7 @@ function attachClickHandlers() {
       selectedCourseResult = {
         courseId: el.dataset.courseid,
         courseTitle: el.dataset.coursetitle,
+        hours: parseInt(el.dataset.coursehours) || null,
         percentage: Math.min(100, Math.max(0, parseInt(el.dataset.percentage) || 0)),
         score: el.dataset.score,
         date: rawDate ? new Date(rawDate) : new Date()
@@ -436,7 +490,7 @@ function attachClickHandlers() {
 }
 
 // GENERAR DOCUMENTOS
-async function generateBothDocuments() {
+async function generateBothDocuments(opts = {}) {
   if (!_adminVerified) { showError('⛔ Acceso no autorizado.'); return; }
   const student = selectedStudent;
   const course = selectedCourseResult;
@@ -447,8 +501,11 @@ async function generateBothDocuments() {
   const _uuid = () => (typeof crypto !== 'undefined' && crypto.randomUUID)
     ? crypto.randomUUID().replace(/-/g,'')
     : Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('');
-  diplomaToken = 'DIP_' + _uuid().substring(0, 24);
-  certToken    = 'CERT_' + _uuid().substring(0, 24);
+  diplomaToken = (opts.tokens && opts.tokens.dip)  || ('DIP_'  + _uuid().substring(0, 24));
+  certToken    = (opts.tokens && opts.tokens.cert) || ('CERT_' + _uuid().substring(0, 24));
+  _registroOk = false;
+  $('downloadDiplomaBtn').disabled = true;
+  $('downloadCertBtn').disabled = true;
 
   // URL base para el QR - funciona en GitHub Pages y subdirectorios
   const pathBase = window.location.pathname.endsWith('/')
@@ -458,29 +515,36 @@ async function generateBothDocuments() {
   const diplomaUrl = `${baseUrl}verificar.html?id=${diplomaToken}`;
   const certUrl = `${baseUrl}verificar.html?id=${certToken}`;
 
-  // Determinar carga horaria según tipo de curso
-  const titleLower = (course.courseTitle || '').toLowerCase();
-  const es36h = titleLower.includes('operador') || (titleLower.includes('aseo') && titleLower.includes('limpieza industrial'));
-  const horas = es36h ? 36 : 120;
-  const horasLabel = horas === 36 ? '36 horas' : '120 horas';
+  // Carga horaria: la define el curso (o el formulario manual). Ya no se adivina por el título.
+  const horas = course.hours ? course.hours : await resolveCourseHours(course);
+  if (!horas) return;
+  const horasLabel = horas + (horas === 1 ? ' hora' : ' horas');
 
-  const commonData = {
-    studentId: student.uid,
-    studentName: student.name,
-    studentRut: student.rut,
-    studentEmail: student.email,
-    courseId: course.courseId,
-    courseName: course.courseTitle,
-    percentage: course.percentage,
-    score: course.score,
-    issuedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    hours: horas
-  };
+  // "Curso de X": si el título ya empieza con "Curso de", no se repite
+  const cursoNombre = (course.courseTitle || '').replace(/^\s*curso\s+de\s+/i, '').trim() || course.courseTitle;
+  const tienePuntaje = course.percentage !== null && course.percentage !== undefined && course.percentage !== '';
 
   const hoy = course.date instanceof Date ? course.date : new Date();
   const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const fechaStr = `${hoy.getDate()} de ${meses[hoy.getMonth()]} de ${hoy.getFullYear()}`;
   const fechaStrCert = `Quilpué, ${String(hoy.getDate()).padStart(2,'0')} de ${meses[hoy.getMonth()]} de ${hoy.getFullYear()}`;
+
+  const qrCaption = opts.manual ? 'Curso Presencial' : 'Plataforma Online<br>Nueva Ley 21.659';
+
+  const commonData = {
+    studentId: student.uid || null,
+    studentName: student.name,
+    studentRut: student.rut || '',
+    courseId: course.courseId || null,
+    courseName: course.courseTitle,
+    percentage: tienePuntaje ? course.percentage : null,
+    score: course.score || null,
+    issuedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    courseDate: firebase.firestore.Timestamp.fromDate(hoy),
+    hours: horas,
+    modality: opts.manual ? 'presencial' : 'online',
+    source: opts.manual ? 'manual' : 'lms'
+  };
 
   // DIPLOMA
   const diplomaDiv = $('diplomaTemplate');
@@ -493,8 +557,8 @@ async function generateBothDocuments() {
       <div class="diploma-sub">INSTITUTO INASEP SPA CERTIFICA QUE:</div>
       <div class="diploma-name">${escapeHtml(student.name)}</div>
       <div class="diploma-text">
-        Ha finalizado con éxito el curso de ${escapeHtml(course.courseTitle)} de ${horasLabel},<br>
-        obteniendo un puntaje de ${course.percentage}% en su promedio final.
+        Ha finalizado con éxito el curso de ${escapeHtml(cursoNombre)} de ${horasLabel}${tienePuntaje ? `,<br>
+        obteniendo un puntaje de ${course.percentage}% en su promedio final.` : '.'}
       </div>
       <div class="diploma-date">Quilpué, ${fechaStr}</div>
       <div class="diploma-signature-area">
@@ -506,7 +570,7 @@ async function generateBothDocuments() {
     <img class="diploma-sello" src="${IMG_SELLO}" alt="Sello" crossorigin="anonymous">
     <div class="diploma-qr-area">
       <div id="qrDiploma"></div>
-      <div class="diploma-qr-text">Instituto INASEP SpA<br>Plataforma Online<br>Nueva Ley 21.659</div>
+      <div class="diploma-qr-text">Instituto INASEP SpA<br>${qrCaption}</div>
     </div>
   `;
   await generarQRComoImagen($('qrDiploma'), diplomaUrl, 90);
@@ -527,7 +591,7 @@ async function generateBothDocuments() {
       <div class="cert-sub">INSTITUTO INASEP SPA CERTIFICA QUE:</div>
       <div class="cert-name">${escapeHtml(student.name)}</div>
       <div class="cert-text">
-        <b>RUT:</b> ${escapeHtml(student.rut) || '________________'} realizó y finalizó de manera exitosa el <b>Curso de ${escapeHtml(course.courseTitle)}</b> en Instituto Inasep SpA., durante el mes de ${meses[hoy.getMonth()].toUpperCase()} del ${hoy.getFullYear()}, con una carga horaria de ${horas} Horas, aprobando con un ${course.percentage}% todos sus módulos.<br><br>
+        <b>RUT:</b> ${escapeHtml(student.rut) || '________________'} realizó y finalizó de manera exitosa el <b>Curso de ${escapeHtml(cursoNombre)}</b> en Instituto Inasep SpA., durante el mes de ${meses[hoy.getMonth()].toUpperCase()} del ${hoy.getFullYear()}, con una carga horaria de ${horas} Horas${tienePuntaje ? `, aprobando con un ${course.percentage}% todos sus módulos.` : '.'}<br><br>
         Se extiende el presente certificado, para los fines que estime conveniente.
       </div>
       <div class="cert-date">${fechaStrCert}</div>
@@ -540,7 +604,7 @@ async function generateBothDocuments() {
     <img class="cert-sello" src="${IMG_SELLO}" alt="Sello" crossorigin="anonymous">
     <div class="cert-qr-area">
       <div id="qrCert"></div>
-      <div class="cert-qr-text">Instituto INASEP SpA<br>Plataforma Online<br>Nueva Ley 21.659</div>
+      <div class="cert-qr-text">Instituto INASEP SpA<br>${qrCaption}</div>
     </div>
   `;
   await generarQRComoImagen($('qrCert'), certUrl, 90);
@@ -548,11 +612,18 @@ async function generateBothDocuments() {
 
   window.scrollTo({ top: $('previewDiplomaContainer').offsetTop - 20, behavior: 'smooth' });
 
-  // Guardar en Firestore en segundo plano (no bloquea el render)
-  db.collection('diplomas').doc(diplomaToken).set({ ...commonData, token: diplomaToken, type: 'diploma', verificationUrl: diplomaUrl }, { merge: true })
-    .catch(err => console.warn('Firestore diploma:', err.message));
-  db.collection('diplomas').doc(certToken).set({ ...commonData, token: certToken, type: 'certificado', verificationUrl: certUrl }, { merge: true })
-    .catch(err => console.warn('Firestore cert:', err.message));
+  // Guardar en Firestore y esperar confirmación: si no queda registrado, el QR no se podría verificar
+  try {
+    await withTimeout(Promise.all([
+      db.collection('diplomas').doc(diplomaToken).set({ ...commonData, token: diplomaToken, type: 'diploma', verificationUrl: diplomaUrl }, { merge: true }),
+      db.collection('diplomas').doc(certToken).set({ ...commonData, token: certToken, type: 'certificado', verificationUrl: certUrl }, { merge: true })
+    ]), 20000);
+    _registroOk = true;
+    $('downloadDiplomaBtn').disabled = false;
+    $('downloadCertBtn').disabled = false;
+  } catch (err) {
+    showError('⚠️ Los documentos se generaron pero NO quedaron registrados para verificación (' + (err.message || err.code) + '). No los descargues ni los entregues: sus QR dirían "Documento no encontrado". Intenta emitir de nuevo.');
+  }
 }
 
 // ── HELPER: generar QR como <img> base64 (evita canvas CORS en html2canvas) ──
@@ -630,11 +701,13 @@ async function descargarDocumentoPDF(elementId, filename, widthIn, heightIn, ori
 
 // DESCARGAS - PDF sin cortes
 $('downloadDiplomaBtn').addEventListener('click', () => {
+  if (!_registroOk) { showError('⚠️ Este documento aún no está registrado para verificación.'); return; }
   const filename = `Diploma_${selectedStudent?.name?.replace(/\s/g,'_') || 'alumno'}.pdf`;
   descargarDocumentoPDF('diplomaTemplate', filename, 11, 8.5, 'landscape');
 });
 
 $('downloadCertBtn').addEventListener('click', () => {
+  if (!_registroOk) { showError('⚠️ Este documento aún no está registrado para verificación.'); return; }
   const filename = `Certificado_${selectedStudent?.name?.replace(/\s/g,'_') || 'alumno'}.pdf`;
   descargarDocumentoPDF('certTemplate', filename, 8.5, 11, 'portrait');
 });
@@ -643,6 +716,236 @@ function escapeHtml(str) {
   if (!str) return '';
   return str.toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 }
+
+// ═══════════════════════════════════════════════════════════
+// UTILIDADES NUEVAS
+// ═══════════════════════════════════════════════════════════
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo de espera agotado. Revisa tu conexión.')), ms))
+  ]);
+}
+
+// Carga horaria de un curso del LMS. Si el curso aún no la tiene, se pregunta una sola vez
+// y se guarda en el curso (campo "hours") para que no vuelva a preguntar.
+async function resolveCourseHours(course) {
+  const known = Number(courseHoursCache[course.courseId] ?? course.hours);
+  if (Number.isInteger(known) && known > 0) return known;
+
+  const suggested = (course.courseTitle || '').toLowerCase().includes('operador') ? 36 : 120; // regla anterior, solo como sugerencia
+  const answer = prompt(
+    'El curso «' + course.courseTitle + '» no tiene carga horaria definida.\n\n' +
+    '¿Cuántas horas dura? Se guardará en el curso y no se volverá a preguntar.',
+    String(suggested)
+  );
+  if (answer === null) return null;
+  const h = parseInt(answer, 10);
+  if (!Number.isInteger(h) || h < 1 || h > 999 || String(h) !== answer.trim()) {
+    showError('⚠️ Carga horaria inválida. Escribe solo el número de horas (por ejemplo 36).');
+    return null;
+  }
+  if (course.courseId) {
+    try {
+      await db.collection('courses').doc(course.courseId).update({ hours: h });
+      courseHoursCache[course.courseId] = h;
+      if (coursesCache[course.courseId]) coursesCache[course.courseId].hours = h;
+    } catch (err) {
+      showError('⚠️ Se usará ' + h + ' horas, pero no se pudo guardar en el curso: ' + (err.message || err.code));
+    }
+  }
+  return h;
+}
+
+// ═══════════════════════════════════════════════════════════
+// NÓMINA MANUAL (cursos presenciales)
+// ═══════════════════════════════════════════════════════════
+let manualRows = [];   // [{ name, rut, pct, tokens, emitted }]
+
+function normalizarRut(raw) {
+  const t = String(raw || '').replace(/[^0-9kK]/g, '').toUpperCase();
+  if (t.length < 2) return null;
+  const body = t.slice(0, -1), dv = t.slice(-1);
+  if (!/^\d{7,8}$/.test(body)) return null;
+  let sum = 0, mul = 2;
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += Number(body[i]) * mul;
+    mul = mul === 7 ? 2 : mul + 1;
+  }
+  const r = 11 - (sum % 11);
+  const esperado = r === 11 ? '0' : (r === 10 ? 'K' : String(r));
+  if (dv !== esperado) return null;
+  return body.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + dv;
+}
+
+function pareceRut(s) {
+  return /^\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK]$/.test(String(s || '').replace(/\s/g, ''));
+}
+
+function fillManualCourseList() {
+  const dl = $('mCourseList');
+  if (!dl) return;
+  dl.innerHTML = '';
+  Object.keys(coursesCache).forEach(id => {
+    const o = document.createElement('option');
+    o.value = coursesCache[id].title || '';
+    dl.appendChild(o);
+  });
+}
+
+function mCourseChanged() {
+  const t = $('mCourseName').value.trim();
+  const id = Object.keys(coursesCache).find(k => (coursesCache[k].title || '') === t);
+  if (id && Number(coursesCache[id].hours) > 0) $('mHours').value = Number(coursesCache[id].hours);
+}
+
+function parseNomina(text) {
+  const out = [];
+  String(text || '').split(/\r?\n/).forEach(line => {
+    if (!line.trim()) return;
+    const sep = line.includes('\t') ? '\t' : (line.includes(';') ? ';' : ',');
+    let cols = line.split(sep).map(c => c.trim());
+    if (cols.length >= 2 && pareceRut(cols[0]) && !pareceRut(cols[1])) {
+      cols = [cols[1], cols[0]].concat(cols.slice(2));   // venía "RUT; Nombre"
+    }
+    out.push({
+      name: (cols[0] || '').replace(/\s+/g, ' '),
+      rut: cols[1] || '',
+      pct: (cols[2] || '').replace('%', '').trim(),
+      tokens: null,
+      emitted: false
+    });
+  });
+  return out;
+}
+
+function validarFila(r, idx) {
+  if (!r.name || !/\S+\s+\S+/.test(r.name.trim())) return 'Falta el nombre completo';
+  const rut = normalizarRut(r.rut);
+  if (!rut) return 'RUT inválido';
+  const dup = manualRows.findIndex((o, j) => j !== idx && normalizarRut(o.rut) === rut);
+  if (dup !== -1) return 'RUT repetido en la nómina';
+  if (String(r.pct).trim() !== '') {
+    const n = Number(String(r.pct).replace(',', '.'));
+    if (!isFinite(n) || n < 0 || n > 100) return 'La nota debe ser un porcentaje de 0 a 100';
+  }
+  return '';
+}
+
+function renderManualRows() {
+  const box = $('mRows');
+  if (!manualRows.length) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="m-summary" id="mSummary"></div>' + manualRows.map((r, i) => `
+    <div class="m-row" id="mrow-${i}">
+      <input class="m-in m-name" value="${escapeHtml(r.name)}" placeholder="Nombre completo" oninput="manualEdit(${i},'name',this.value)">
+      <input class="m-in m-rut" value="${escapeHtml(r.rut)}" placeholder="RUT" oninput="manualEdit(${i},'rut',this.value)" onchange="manualRutChange(${i},this)">
+      <input class="m-in m-pct" value="${escapeHtml(r.pct)}" placeholder="Nota %" inputmode="decimal" oninput="manualEdit(${i},'pct',this.value)">
+      <span class="m-status" id="mst-${i}"></span>
+      <button type="button" class="btn-outline" onclick="emitirManual(${i})">${r.emitted ? '🔁 Volver a emitir' : '🎓 Emitir'}</button>
+      <button type="button" class="m-del" title="Quitar de la nómina" onclick="manualRemove(${i})">✕</button>
+    </div>`).join('');
+  paintManualStatus();
+}
+
+function paintManualStatus() {
+  let errores = 0;
+  manualRows.forEach((r, i) => {
+    const el = $('mst-' + i);
+    const err = validarFila(r, i);
+    if (err) errores++;
+    if (!el) return;
+    if (err) { el.className = 'm-status m-err'; el.textContent = '⚠️ ' + err; }
+    else if (r.emitted) { el.className = 'm-status m-done'; el.textContent = '✅ Emitido y registrado'; }
+    else { el.className = 'm-status m-ok'; el.textContent = 'Listo para emitir'; }
+  });
+  const sum = $('mSummary');
+  if (sum) {
+    const emitidos = manualRows.filter(r => r.emitted).length;
+    sum.innerHTML = manualRows.length + ' persona(s) · ' +
+      (errores ? '<span style="color:#c0392b">' + errores + ' con errores</span>' : '<span style="color:#27ae60">sin errores</span>') +
+      ' · ' + emitidos + ' emitida(s)';
+  }
+}
+
+function manualEdit(i, field, value) {
+  if (!manualRows[i]) return;
+  manualRows[i][field] = value;
+  paintManualStatus();
+}
+
+function manualRutChange(i, input) {
+  const f = normalizarRut(input.value);
+  if (f) { manualRows[i].rut = f; input.value = f; }
+  paintManualStatus();
+}
+
+function manualRemove(i) {
+  manualRows.splice(i, 1);
+  renderManualRows();
+}
+
+function leerCursoManual() {
+  const title = $('mCourseName').value.trim().replace(/\s+/g, ' ');
+  const hours = Number($('mHours').value);
+  const dateStr = $('mDate').value;
+  if (title.length < 5) { showError('⚠️ Escribe el nombre del curso.'); return null; }
+  if (!Number.isInteger(hours) || hours < 1 || hours > 999) { showError('⚠️ Indica la carga horaria en horas (número entero).'); return null; }
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  if (!m || Number(m[1]) < 2020) { showError('⚠️ Indica la fecha de término del curso.'); return null; }
+  const date = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+  if (date.getTime() > Date.now() + 24 * 3600 * 1000) { showError('⚠️ La fecha de término no puede ser futura.'); return null; }
+  const courseId = Object.keys(coursesCache).find(k => (coursesCache[k].title || '') === title) || null;
+  return { title, hours, date, courseId };
+}
+
+async function emitirManual(i) {
+  if (!_adminVerified) { showError('⛔ Acceso no autorizado.'); return; }
+  clearError();
+  const row = manualRows[i];
+  if (!row) return;
+  const cfg = leerCursoManual();
+  if (!cfg) return;
+  const err = validarFila(row, i);
+  if (err) { showError('⚠️ ' + (row.name || 'Fila ' + (i + 1)) + ': ' + err + '.'); return; }
+
+  const pctTxt = String(row.pct).trim();
+  selectedStudent = { uid: null, name: row.name.trim(), rut: normalizarRut(row.rut), email: '' };
+  selectedCourseResult = {
+    courseId: cfg.courseId,
+    courseTitle: cfg.title,
+    percentage: pctTxt === '' ? null : Math.round(Number(pctTxt.replace(',', '.'))),
+    score: null,
+    date: cfg.date,
+    hours: cfg.hours
+  };
+  await generateBothDocuments({ manual: true, tokens: row.tokens });
+  if (_registroOk) {
+    row.tokens = { dip: diplomaToken, cert: certToken };   // al volver a emitir se mantiene el mismo QR
+    row.emitted = true;
+    row.rut = selectedStudent.rut;
+    renderManualRows();
+  }
+}
+
+$('mCourseName').addEventListener('input', mCourseChanged);
+$('mLoadBtn').addEventListener('click', () => {
+  const filas = parseNomina($('mPaste').value);
+  if (!filas.length) { showError('⚠️ Pega primero la nómina (una persona por línea).'); return; }
+  clearError();
+  manualRows = manualRows.concat(filas);
+  $('mPaste').value = '';
+  renderManualRows();
+});
+$('mAddBtn').addEventListener('click', () => {
+  manualRows.push({ name: '', rut: '', pct: '', tokens: null, emitted: false });
+  renderManualRows();
+});
+$('mClearBtn').addEventListener('click', () => {
+  if (manualRows.length && !confirm('¿Quitar toda la nómina de la pantalla? Lo ya emitido sigue registrado.')) return;
+  manualRows = [];
+  renderManualRows();
+});
+
 </script>
 </body>
 </html>
