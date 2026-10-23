@@ -9,6 +9,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=EB+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #eef2ef; font-family: 'Segoe UI', Roboto, 'Times New Roman', serif; padding: 2rem 1rem; }
@@ -45,51 +48,46 @@ button:disabled { background: #a0b8a8; cursor: not-allowed; transform: none; }
 .stats-bar { background: #f6fcf8; padding: 12px 20px; border-radius: 12px; margin-bottom: 16px; display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.85rem; color: #4a6651; }
 .stats-bar span { font-weight: 700; color: #1e3d28; }
 
-/* DIPLOMA HORIZONTAL - Carta 11x8.5in */
-.diploma-template { width: 11in; height: 8.5in; background: white; position: relative; overflow: hidden; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.15); }
-.diploma-bar-top, .diploma-bar-bottom { position: absolute; left: -2px; width: calc(100% + 4px); height: 28px; background: #1e3d28; }
-.diploma-bar-top { top: 0; }
-.diploma-bar-bottom { bottom: 0; }
-.diploma-inner { position: absolute; top: 28px; left: 0; right: 0; bottom: 28px; padding: 30px 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.diploma-logo { position: absolute; top: 45px; left: 50px; width: 80px; height: 80px; object-fit: contain; z-index: 2; }
-.diploma-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 450px; height: 450px; opacity: 0.06; pointer-events: none; z-index: 0; }
-.diploma-title { font-family: 'Times New Roman', Georgia, serif; font-size: 2.6rem; color: #1e3d28; letter-spacing: 3px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; z-index: 1; }
-.diploma-sub { font-family: 'Times New Roman', Georgia, serif; font-size: 1.15rem; color: #2a5536; margin-bottom: 20px; z-index: 1; }
-.diploma-name { font-family: 'Times New Roman', Georgia, serif; font-size: 2.2rem; color: #b8860b; font-weight: 700; margin: 15px 0; z-index: 1; }
-.diploma-text { font-family: 'Times New Roman', Georgia, serif; font-size: 1.05rem; color: #2c3e2b; text-align: center; max-width: 750px; line-height: 1.6; z-index: 1; }
-.diploma-date { font-family: 'Times New Roman', Georgia, serif; font-size: 1rem; color: #2c3e2b; margin-top: 20px; z-index: 1; }
-.diploma-signature-area { display: flex; flex-direction: column; align-items: center; margin-top: 15px; z-index: 1; }
-.diploma-signature-img { width: 202px; height: auto; margin-bottom: -18px; position: relative; z-index: 2; }
-.diploma-signature-line { width: 220px; border-top: 1px solid #333; margin-bottom: 6px; }
-.diploma-signature-text { font-family: 'Times New Roman', Georgia, serif; font-size: 0.95rem; color: #2c3e2b; text-align: center; line-height: 1.4; }
-.diploma-sello { position: absolute; bottom: 45px; left: 50px; width: 110px; height: 110px; object-fit: contain; z-index: 1; }
-.diploma-qr-area { position: absolute; bottom: 40px; right: 50px; display: flex; flex-direction: column; align-items: center; z-index: 1; }
-.diploma-qr-text { font-size: 0.65rem; color: #555; text-align: center; line-height: 1.3; margin-top: 4px; }
+/* DIPLOMA Y CERTIFICADO - A4 sobre imagen de plantilla (diploma 297x210mm, certificado 210x297mm) */
+.diploma-template, .cert-template { position: relative; overflow: hidden; margin: 0 auto; background: #fbf6e9; box-shadow: 0 10px 30px rgba(0,0,0,0.15); color: #1e3d28; font-family: 'EB Garamond', 'Garamond', 'Georgia', 'Times New Roman', serif; }
+.diploma-template { width: 1123px; height: 794px; }
+.cert-template { width: 794px; height: 1122px; }
+.doc-bg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+.doc-img { position: absolute; display: block; z-index: 2; object-fit: contain; }
+/* Cada texto vive en una "caja" de tamaño fijo: el script reduce la letra hasta que quepa, así nada se traslapa ni se sale */
+.doc-slot { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden; z-index: 2; }
+.doc-slot > .t { flex: none; }
+.doc-slot.wrap > .t { width: 100%; }
+.doc-slot.nowrap > .t { white-space: nowrap; }
+.doc-name { font-family: 'Cormorant Garamond', 'EB Garamond', 'Georgia', serif; font-weight: 700; color: #17402a; text-transform: uppercase; letter-spacing: 0.02em; line-height: 1.1; }
+.doc-body { color: #22342a; line-height: 1.42; font-weight: 500; }
+.doc-body b { color: #17402a; font-weight: 600; }
+.doc-label { color: #2a4a38; letter-spacing: 0.08em; font-weight: 500; }
+.doc-qr { position: absolute; z-index: 2; text-align: center; }
+.doc-qr > div:first-child { width: 100px; height: 100px; margin: 0 auto; }
+.doc-qr img { display: block; width: 100px; height: 100px; }
+.doc-qr-text { margin-top: 5px; font-size: 10px; line-height: 1.25; color: #2b3a2f; font-weight: 500; white-space: nowrap; }
 
-/* CERTIFICADO VERTICAL - Carta 8.5x11in */
-.cert-template { width: 8.5in; height: 11in; background: white; position: relative; overflow: hidden; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.15); }
-.cert-bar-top, .cert-bar-bottom { position: absolute; left: -2px; width: calc(100% + 4px); height: 28px; background: #1e3d28; }
-.cert-bar-top { top: 0; }
-.cert-bar-bottom { bottom: 0; }
-.cert-inner { position: absolute; top: 28px; left: 0; right: 0; bottom: 28px; padding: 35px 55px; display: flex; flex-direction: column; align-items: center; }
-.cert-logo { position: absolute; top: 42px; left: 55px; width: 75px; height: 75px; object-fit: contain; z-index: 2; }
-.cert-header-text { position: absolute; top: 48px; left: 145px; z-index: 2; }
-.cert-header-text .cert-header-name { font-family: 'Times New Roman', Georgia, serif; font-size: 1.3rem; color: #1e3d28; font-weight: 700; letter-spacing: 1px; }
-.cert-header-text .cert-header-sub { font-family: 'Times New Roman', Georgia, serif; font-size: 0.65rem; color: #4a6651; letter-spacing: 2px; text-transform: uppercase; }
-.cert-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 450px; height: 450px; opacity: 0.06; pointer-events: none; z-index: 0; }
-.cert-title { font-family: 'Times New Roman', Georgia, serif; font-size: 2.4rem; color: #1e3d28; letter-spacing: 2px; font-weight: 700; text-transform: uppercase; margin-top: 110px; margin-bottom: 25px; z-index: 1; }
-.cert-sub { font-family: 'Times New Roman', Georgia, serif; font-size: 1.2rem; color: #2a5536; margin-bottom: 25px; z-index: 1; }
-.cert-name { font-family: 'Times New Roman', Georgia, serif; font-size: 2rem; color: #b8860b; font-weight: 700; margin: 10px 0 25px; z-index: 1; }
-.cert-text { font-family: 'Times New Roman', Georgia, serif; font-size: 1.1rem; color: #2c3e2b; text-align: justify; text-align-last: center; max-width: 680px; line-height: 1.7; z-index: 1; }
-.cert-text b { color: #1e3d28; }
-.cert-date { font-family: 'Times New Roman', Georgia, serif; font-size: 1.1rem; color: #2c3e2b; margin-top: 35px; z-index: 1; }
-.cert-signature-area { display: flex; flex-direction: column; align-items: center; margin-top: 20px; z-index: 1; }
-.cert-signature-img { width: 202px; height: auto; margin-bottom: -18px; position: relative; z-index: 2; }
-.cert-signature-line { width: 220px; border-top: 1px solid #333; margin-bottom: 6px; }
-.cert-signature-text { font-family: 'Times New Roman', Georgia, serif; font-size: 0.95rem; color: #2c3e2b; text-align: center; line-height: 1.4; }
-.cert-sello { position: absolute; bottom: 45px; left: 55px; width: 110px; height: 110px; object-fit: contain; z-index: 1; }
-.cert-qr-area { position: absolute; bottom: 40px; right: 55px; display: flex; flex-direction: column; align-items: center; z-index: 1; }
-.cert-qr-text { font-size: 0.65rem; color: #555; text-align: center; line-height: 1.3; margin-top: 4px; }
+/* — Diploma (1123 x 794 px) — */
+.dp-label { left: 300px; top: 334px; width: 523px; height: 26px; }
+.dp-name  { left: 190px; top: 362px; width: 743px; height: 62px; }
+.dp-body  { left: 170px; top: 440px; width: 783px; height: 100px; }
+.dp-date  { left: 400px; top: 566px; width: 323px; height: 24px; }
+.dp-firma { left: 461px; top: 598px; width: 200px; height: 96px; }
+.dp-dir1  { left: 400px; top: 706px; width: 323px; height: 20px; }
+.dp-dir2  { left: 400px; top: 726px; width: 323px; height: 18px; }
+.dp-sello { left: 92px; top: 551px; width: 170px; }
+.dp-qr    { left: 840px; top: 588px; width: 130px; }
+
+/* — Certificado (794 x 1122 px) — */
+.ct-sub   { left: 130px; top: 486px; width: 534px; height: 28px; }
+.ct-name  { left: 118px; top: 522px; width: 558px; height: 70px; }
+.ct-body  { left: 118px; top: 606px; width: 558px; height: 168px; }
+.ct-date  { left: 217px; top: 812px; width: 360px; height: 26px; }
+.ct-firma { left: 297px; top: 842px; width: 200px; height: 68px; }
+.ct-firma-line { left: 307px; top: 912px; width: 180px; height: 0; border-top: 1px solid #5f7f6c; position: absolute; z-index: 2; }
+.ct-dir   { left: 277px; top: 918px; width: 240px; height: 66px; }
+.ct-qr    { left: 575px; top: 858px; width: 130px; }
 
 @media (max-width: 900px) {
   .diploma-template:not(.no-transform) { transform: scale(0.55); transform-origin: top center; }
@@ -222,6 +220,9 @@ const IMG_LOGO = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/logo.p
 const IMG_FIRMA = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/firma.png";
 const IMG_SELLO = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/sello.png";
 const IMG_WATERMARK = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/logo.png";
+const IMG_PLANTILLA_DIPLOMA = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/plantilla_diploma.jpg";
+const IMG_PLANTILLA_CERT = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/plantilla_certificado.jpg";
+const IMG_SELLO_OFICIAL = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/sello_oficial.png";
 
 // ========== FIREBASE ==========
 const firebaseConfig = {
@@ -549,7 +550,7 @@ async function generateBothDocuments(opts = {}) {
   const horasLabel = horas + (horas === 1 ? ' hora' : ' horas');
 
   // "Curso de X": si el título ya empieza con "Curso de", no se repite
-  const cursoNombre = (course.courseTitle || '').replace(/^\s*curso\s+de\s+/i, '').trim() || course.courseTitle;
+  const cursoNombre = (course.courseTitle || '').replace(/^\s*curso\s+(?:de\s+|del\s+)?/i, '').trim() || course.courseTitle;
   const tienePuntaje = course.percentage !== null && course.percentage !== undefined && course.percentage !== '';
 
   const hoy = course.date instanceof Date ? course.date : new Date();
@@ -581,69 +582,48 @@ async function generateBothDocuments(opts = {}) {
     rosterId: opts.rosterId || null
   };
 
-  // DIPLOMA
+  // DIPLOMA (A4 horizontal sobre plantilla)
   const diplomaDiv = $('diplomaTemplate');
+  const nombreAlumno = escapeHtml(student.name);
+  const textoDiploma = `En reconocimiento a su destacada participación y compromiso durante el Curso de <b>${escapeHtml(cursoNombre)}</b>, habiendo aprobado satisfactoriamente el programa y cumplido con ${horas === 1 ? 'la' : 'las'} <b>${horasLabel}</b> de capacitación exigidas por la Subsecretaría de Prevención del Delito y el Departamento OS10 de Carabineros de Chile${tienePuntaje ? `, obteniendo un promedio final de <b>${course.percentage}%</b>.` : '.'}`;
   diplomaDiv.innerHTML = `
-    <div class="diploma-bar-top"></div><div class="diploma-bar-bottom"></div>
-    <img class="diploma-logo" src="${IMG_LOGO}" alt="INASEP" crossorigin="anonymous">
-    <img class="diploma-watermark" src="${IMG_WATERMARK}" alt="" crossorigin="anonymous">
-    <div class="diploma-inner">
-      <div class="diploma-title">DIPLOMA DE HONOR</div>
-      <div class="diploma-sub">INSTITUTO INASEP SPA CERTIFICA QUE:</div>
-      <div class="diploma-name">${escapeHtml(student.name)}</div>
-      <div class="diploma-text">
-        Ha finalizado con éxito el curso de ${escapeHtml(cursoNombre)} de ${horasLabel}${tienePuntaje ? `,<br>
-        obteniendo un puntaje de ${course.percentage}% en su promedio final.` : '.'}
-      </div>
-      <div class="diploma-date">Quilpué, ${fechaStr}</div>
-      <div class="diploma-signature-area">
-        <img class="diploma-signature-img" src="${IMG_FIRMA}" alt="Firma" crossorigin="anonymous">
-        <div class="diploma-signature-line"></div>
-        <div class="diploma-signature-text">Elizabeth Orellana Pizarro<br>Directora<br>Instituto Inasep SpA</div>
-      </div>
-    </div>
-    <img class="diploma-sello" src="${IMG_SELLO}" alt="Sello" crossorigin="anonymous">
-    <div class="diploma-qr-area">
-      <div id="qrDiploma"></div>
-      <div class="diploma-qr-text">Instituto INASEP SpA<br>${qrCaption}</div>
-    </div>
+    <img class="doc-bg" src="${IMG_PLANTILLA_DIPLOMA}" alt="" crossorigin="anonymous">
+    <div class="doc-slot nowrap dp-label doc-label" data-fit="19,12"><div class="t">SE OTORGA EL PRESENTE DIPLOMA A:</div></div>
+    <div class="doc-slot nowrap dp-name doc-name" data-fit-name="40,28,26,15"><div class="t">${nombreAlumno}</div></div>
+    <div class="doc-slot wrap dp-body doc-body" data-fit="19,11"><div class="t">${textoDiploma}</div></div>
+    <div class="doc-slot nowrap dp-date doc-body" data-fit="17,12"><div class="t">${fechaStr}</div></div>
+    <img class="doc-img dp-firma" src="${IMG_FIRMA}" alt="Firma" crossorigin="anonymous">
+    <div class="doc-slot nowrap dp-dir1 doc-body" data-fit="17,11"><div class="t">Elizabeth M. Orellana Pizarro</div></div>
+    <div class="doc-slot nowrap dp-dir2 doc-body" data-fit="14,10"><div class="t">DIRECTORA ACADÉMICA INASEP</div></div>
+    <img class="doc-img dp-sello" src="${IMG_SELLO_OFICIAL}" alt="Sello" crossorigin="anonymous">
+    <div class="doc-qr dp-qr"><div id="qrDiploma"></div><div class="doc-qr-text">Escanee para verificar<br>Instituto INASEP SpA<br>${qrCaption}</div></div>
   `;
-  await generarQRComoImagen($('qrDiploma'), diplomaUrl, 90);
-  $('previewDiplomaContainer').classList.remove('hidden');
 
-  // CERTIFICADO
+  // CERTIFICADO (A4 vertical sobre plantilla)
   const certDiv = $('certTemplate');
+  const textoCert = `<b>RUT:</b> ${escapeHtml(student.rut) || '________________'} realizó y finalizó de manera exitosa el <b>Curso de ${escapeHtml(cursoNombre)}</b> en Instituto Inasep SpA., durante el mes de ${meses[hoy.getMonth()].toUpperCase()} del ${hoy.getFullYear()}, con una carga horaria de ${horas} Horas${tienePuntaje ? `, aprobando con un ${course.percentage}% todos sus módulos.` : '.'}<br><br>Se extiende el presente certificado, para los fines que estime conveniente.`;
   certDiv.innerHTML = `
-    <div class="cert-bar-top"></div><div class="cert-bar-bottom"></div>
-    <img class="cert-logo" src="${IMG_LOGO}" alt="INASEP" crossorigin="anonymous">
-    <div class="cert-header-text">
-      <div class="cert-header-name">INASEP</div>
-      <div class="cert-header-sub">INSTITUTO NACIONAL DE SEGURIDAD PRIVADA</div>
-    </div>
-    <img class="cert-watermark" src="${IMG_WATERMARK}" alt="" crossorigin="anonymous">
-    <div class="cert-inner">
-      <div class="cert-title">CERTIFICADO DE APROBACIÓN</div>
-      <div class="cert-sub">INSTITUTO INASEP SPA CERTIFICA QUE:</div>
-      <div class="cert-name">${escapeHtml(student.name)}</div>
-      <div class="cert-text">
-        <b>RUT:</b> ${escapeHtml(student.rut) || '________________'} realizó y finalizó de manera exitosa el <b>Curso de ${escapeHtml(cursoNombre)}</b> en Instituto Inasep SpA., durante el mes de ${meses[hoy.getMonth()].toUpperCase()} del ${hoy.getFullYear()}, con una carga horaria de ${horas} Horas${tienePuntaje ? `, aprobando con un ${course.percentage}% todos sus módulos.` : '.'}<br><br>
-        Se extiende el presente certificado, para los fines que estime conveniente.
-      </div>
-      <div class="cert-date">${fechaStrCert}</div>
-      <div class="cert-signature-area">
-        <img class="cert-signature-img" src="${IMG_FIRMA}" alt="Firma" crossorigin="anonymous">
-        <div class="cert-signature-line"></div>
-        <div class="cert-signature-text">Elizabeth Orellana Pizarro<br>Directora<br>Instituto Inasep SpA</div>
-      </div>
-    </div>
-    <img class="cert-sello" src="${IMG_SELLO}" alt="Sello" crossorigin="anonymous">
-    <div class="cert-qr-area">
-      <div id="qrCert"></div>
-      <div class="cert-qr-text">Instituto INASEP SpA<br>${qrCaption}</div>
-    </div>
+    <img class="doc-bg" src="${IMG_PLANTILLA_CERT}" alt="" crossorigin="anonymous">
+    <div class="doc-slot nowrap ct-sub doc-label" data-fit="18,12"><div class="t">INSTITUTO INASEP SPA CERTIFICA QUE:</div></div>
+    <div class="doc-slot nowrap ct-name doc-name" data-fit-name="36,26,24,15"><div class="t">${nombreAlumno}</div></div>
+    <div class="doc-slot wrap ct-body doc-body" data-fit="20,11"><div class="t" style="text-align:justify;text-align-last:center">${textoCert}</div></div>
+    <div class="doc-slot nowrap ct-date doc-body" data-fit="18,12"><div class="t">${fechaStrCert}</div></div>
+    <img class="doc-img ct-firma" src="${IMG_FIRMA}" alt="Firma" crossorigin="anonymous">
+    <div class="ct-firma-line"></div>
+    <div class="doc-slot wrap ct-dir doc-body" data-fit="17,11"><div class="t">Elizabeth Orellana Pizarro<br>Directora<br>Instituto Inasep SpA</div></div>
+    <div class="doc-qr ct-qr"><div id="qrCert"></div><div class="doc-qr-text">Escanee para verificar<br>Instituto INASEP SpA<br>${qrCaption}</div></div>
   `;
-  await generarQRComoImagen($('qrCert'), certUrl, 90);
+
+  // Mostrar ambas vistas ANTES de medir (los textos se ajustan con la fuente ya cargada)
+  $('previewDiplomaContainer').classList.remove('hidden');
   $('previewCertContainer').classList.remove('hidden');
+  await Promise.all([
+    generarQRTransparente($('qrDiploma'), diplomaUrl, 100),
+    generarQRTransparente($('qrCert'), certUrl, 100)
+  ]);
+  await esperarFuentes();
+  ajustarTextos(diplomaDiv);
+  ajustarTextos(certDiv);
 
   window.scrollTo({ top: $('previewDiplomaContainer').offsetTop - 20, behavior: 'smooth' });
 
@@ -661,39 +641,99 @@ async function generateBothDocuments(opts = {}) {
   }
 }
 
-// ── HELPER: generar QR como <img> base64 (evita canvas CORS en html2canvas) ──
-function generarQRComoImagen(container, url, size) {
+// ── HELPER: QR con fondo TRANSPARENTE y tinta verde muy oscura (alto contraste, se lee bien sobre el papel crema) ──
+function generarQRTransparente(container, url, cssSize) {
   return new Promise((resolve) => {
     container.innerHTML = '';
     const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = 'position:absolute;left:-9999px;top:0;';
     document.body.appendChild(tempDiv);
-    const qr = new QRCode(tempDiv, {
-      text: url,
-      width: size,
-      height: size,
-      colorDark: "#000000",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.M
-    });
+    const RES = 480; // alta resolución interna: módulos nítidos al imprimir
+    new QRCode(tempDiv, { text: url, width: RES, height: RES, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
     setTimeout(() => {
-      const canvas = tempDiv.querySelector('canvas');
-      if (canvas) {
-        const dataUrl = canvas.toDataURL('image/png');
+      const src = tempDiv.querySelector('canvas');
+      if (src) {
+        const c = document.createElement('canvas');
+        c.width = src.width; c.height = src.height;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(src, 0, 0);
+        const d = ctx.getImageData(0, 0, c.width, c.height);
+        const px = d.data;
+        for (let i = 0; i < px.length; i += 4) {
+          const oscuro = px[i] < 128;
+          px[i] = 0x0b; px[i + 1] = 0x24; px[i + 2] = 0x16; px[i + 3] = oscuro ? 255 : 0;
+        }
+        ctx.putImageData(d, 0, 0);
         const img = document.createElement('img');
-        img.src = dataUrl;
-        img.width = size;
-        img.height = size;
-        img.style.display = 'block';
+        img.src = c.toDataURL('image/png');
+        img.style.cssText = 'display:block;width:' + cssSize + 'px;height:' + cssSize + 'px;';
         container.appendChild(img);
       }
       document.body.removeChild(tempDiv);
       resolve();
-    }, 200);
+    }, 60);
   });
 }
 
-// ── HELPER: descargar documento como PDF exacto (sin cortes, centrado) ──
-async function descargarDocumentoPDF(elementId, filename, widthIn, heightIn, orientation) {
+// ── HELPER: esperar tipografías (con tope, por si no hay internet) ──
+async function esperarFuentes() {
+  try {
+    if (document.fonts && document.fonts.load) {
+      await Promise.race([
+        Promise.all([
+          document.fonts.load('500 18px "EB Garamond"'),
+          document.fonts.load('600 18px "EB Garamond"'),
+          document.fonts.load('700 30px "Cormorant Garamond"')
+        ]).then(() => document.fonts.ready),
+        new Promise(r => setTimeout(r, 3000))
+      ]);
+    }
+  } catch (e) { /* se usa la fuente de respaldo */ }
+}
+
+// ── HELPER: ajustar cada texto a su caja (nunca se traslapa ni se desborda) ──
+function cabeEnCaja(slot, t, margen) {
+  const W = slot.clientWidth, H = slot.clientHeight;
+  if (slot.classList.contains('nowrap')) return t.offsetWidth <= W - margen && t.offsetHeight <= H;
+  return t.scrollWidth <= t.clientWidth && t.offsetHeight <= H;
+}
+function ajustarSlot(slot, max, min, margen) {
+  const t = slot.firstElementChild;
+  for (let fs = max; fs >= min; fs -= 0.5) {
+    t.style.fontSize = fs + 'px';
+    if (cabeEnCaja(slot, t, margen)) return fs;
+  }
+  t.style.fontSize = min + 'px';
+  return min;
+}
+// Nombres: una línea (grande → chico); si es larguísimo, pasa a dos líneas
+function ajustarNombre(slot) {
+  const [max1, min1, max2, min2] = slot.dataset.fitName.split(',').map(Number);
+  const t = slot.firstElementChild;
+  slot.classList.add('nowrap'); slot.classList.remove('wrap');
+  t.style.whiteSpace = 'nowrap'; t.style.width = '';
+  for (let fs = max1; fs >= min1; fs -= 0.5) {
+    t.style.fontSize = fs + 'px';
+    if (cabeEnCaja(slot, t, 12)) return;
+  }
+  slot.classList.remove('nowrap'); slot.classList.add('wrap');
+  t.style.whiteSpace = 'normal'; t.style.width = '100%';
+  for (let fs = max2; fs >= min2; fs -= 0.5) {
+    t.style.fontSize = fs + 'px';
+    if (cabeEnCaja(slot, t, 0)) return;
+  }
+  t.style.fontSize = min2 + 'px';
+}
+function ajustarTextos(raiz) {
+  raiz.querySelectorAll('.doc-slot[data-fit]').forEach(s => {
+    const [max, min] = s.dataset.fit.split(',').map(Number);
+    ajustarSlot(s, max, min, 8);
+  });
+  raiz.querySelectorAll('.doc-slot[data-fit-name]').forEach(ajustarNombre);
+}
+
+// ── HELPER: descargar documento como PDF A4 exacto (una sola página) ──
+async function descargarDocumentoPDF(elementId, filename, orientation) {
   const el = document.getElementById(elementId);
 
   // Neutralizar transform del media query ANTES de que html2pdf capture
@@ -707,26 +747,25 @@ async function descargarDocumentoPDF(elementId, filename, widthIn, heightIn, ori
   const opt = {
     margin: 0,
     filename: filename,
-    image: { type: 'jpeg', quality: 0.98 },
+    image: { type: 'jpeg', quality: 0.95 },
     html2canvas: {
-      scale: 2,
+      scale: 3,
       useCORS: true,
       allowTaint: false,
       letterRendering: true,
       logging: false,
       scrollX: 0,
-      scrollY: 0
+      scrollY: 0,
+      backgroundColor: '#fbf6e9'
     },
-    jsPDF: {
-      unit: 'in',
-      format: [widthIn, heightIn],
-      orientation: orientation,
-      compress: true
-    }
+    jsPDF: { unit: 'mm', format: 'a4', orientation: orientation, compress: true }
   };
 
   try {
-    await html2pdf().set(opt).from(el).save();
+    await html2pdf().set(opt).from(el).toPdf().get('pdf').then(pdf => {
+      // Seguridad: el PDF debe tener una sola página
+      while (pdf.internal.getNumberOfPages() > 1) pdf.deletePage(pdf.internal.getNumberOfPages());
+    }).save();
   } finally {
     el.classList.remove('no-transform');
     el.style.boxShadow = '';
@@ -734,17 +773,17 @@ async function descargarDocumentoPDF(elementId, filename, widthIn, heightIn, ori
   }
 }
 
-// DESCARGAS - PDF sin cortes
+// DESCARGAS - PDF A4
 $('downloadDiplomaBtn').addEventListener('click', () => {
   if (!_registroOk) { showError('⚠️ Este documento aún no está registrado para verificación.'); return; }
   const filename = `Diploma_${selectedStudent?.name?.replace(/\s/g,'_') || 'alumno'}.pdf`;
-  descargarDocumentoPDF('diplomaTemplate', filename, 11, 8.5, 'landscape');
+  descargarDocumentoPDF('diplomaTemplate', filename, 'landscape');
 });
 
 $('downloadCertBtn').addEventListener('click', () => {
   if (!_registroOk) { showError('⚠️ Este documento aún no está registrado para verificación.'); return; }
   const filename = `Certificado_${selectedStudent?.name?.replace(/\s/g,'_') || 'alumno'}.pdf`;
-  descargarDocumentoPDF('certTemplate', filename, 8.5, 11, 'portrait');
+  descargarDocumentoPDF('certTemplate', filename, 'portrait');
 });
 
 function escapeHtml(str) {
