@@ -223,6 +223,8 @@ const IMG_WATERMARK = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/l
 const IMG_PLANTILLA_DIPLOMA = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/plantilla_diploma.jpg";
 const IMG_PLANTILLA_CERT = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/plantilla_certificado.jpg";
 const IMG_SELLO_OFICIAL = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/sello_oficial.png";
+// Cursos cuyo diploma NO menciona a la SPD ni al OS10 (texto en minúsculas y sin tildes; basta que el título del curso lo contenga)
+const CURSOS_SIN_OS10 = ["aseo y limpieza industrial"];
 
 // ========== FIREBASE ==========
 const firebaseConfig = {
@@ -585,7 +587,9 @@ async function generateBothDocuments(opts = {}) {
   // DIPLOMA (A4 horizontal sobre plantilla)
   const diplomaDiv = $('diplomaTemplate');
   const nombreAlumno = escapeHtml(student.name);
-  const textoDiploma = `En reconocimiento a su destacada participación y compromiso durante el Curso de <b>${escapeHtml(cursoNombre)}</b>, habiendo aprobado satisfactoriamente el programa y cumplido con ${horas === 1 ? 'la' : 'las'} <b>${horasLabel}</b> de capacitación exigidas por la Subsecretaría de Prevención del Delito y el Departamento OS10 de Carabineros de Chile${tienePuntaje ? `, obteniendo un promedio final de <b>${course.percentage}%</b>.` : '.'}`;
+  const normCurso = (course.courseTitle || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const sinOS10 = CURSOS_SIN_OS10.some(k => normCurso.includes(k));
+  const textoDiploma = `En reconocimiento a su destacada participación y compromiso durante el Curso de <b>${escapeHtml(cursoNombre)}</b>, habiendo aprobado satisfactoriamente el programa y cumplido con ${horas === 1 ? 'la' : 'las'} <b>${horasLabel}</b> de capacitación${sinOS10 ? '' : ' exigidas por la Subsecretaría de Prevención del Delito y el Departamento OS10 de Carabineros de Chile'}${tienePuntaje ? `, obteniendo un promedio final de <b>${course.percentage}%</b>.` : '.'}`;
   diplomaDiv.innerHTML = `
     <img class="doc-bg" src="${IMG_PLANTILLA_DIPLOMA}" alt="" crossorigin="anonymous">
     <div class="doc-slot nowrap dp-label doc-label" data-fit="19,12"><div class="t">SE OTORGA EL PRESENTE DIPLOMA A:</div></div>
