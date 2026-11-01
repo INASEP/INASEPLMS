@@ -1,0 +1,1653 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INASEP - Emisión de Diplomas y Certificados</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=EB+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #eef2ef; font-family: 'Segoe UI', Roboto, 'Times New Roman', serif; padding: 2rem 1rem; }
+.container { max-width: 1400px; margin: 0 auto; }
+.search-panel { background: white; border-radius: 20px; padding: 24px; margin-bottom: 30px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); border: 1px solid #d4e0d6; }
+.search-panel h2 { font-size: 1.6rem; color: #1e3d28; margin-bottom: 16px; border-left: 6px solid #4a8c5c; padding-left: 18px; }
+.form-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-top: 16px; }
+.form-group { flex: 1; min-width: 200px; }
+.form-group label { display: block; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #4a6651; letter-spacing: 0.5px; margin-bottom: 5px; }
+.form-group input, .form-group select { width: 100%; padding: 12px 14px; border: 2px solid #dee8e0; border-radius: 14px; font-family: inherit; font-size: 0.9rem; background: #fbfefc; }
+.form-group input:focus, .form-group select:focus { outline: none; border-color: #4a8c5c; }
+button { background: #4a8c5c; border: none; padding: 12px 28px; border-radius: 40px; font-weight: 700; font-size: 0.85rem; color: white; cursor: pointer; transition: 0.2s; font-family: inherit; }
+button:hover { background: #2a5536; transform: scale(0.98); }
+button:disabled { background: #a0b8a8; cursor: not-allowed; transform: none; }
+.btn-outline { background: transparent; border: 2px solid #4a8c5c; color: #2a5536; }
+.btn-outline:hover { background: #4a8c5c; color: white; }
+.btn-loadmore { background: #b8860b; border: none; margin: 15px auto; display: block; }
+.btn-loadmore:hover { background: #8b6508; }
+.alumnos-list { background: white; border-radius: 20px; overflow: hidden; margin-bottom: 30px; border: 1px solid #dee8e0; }
+.alumno-item { padding: 16px 24px; border-bottom: 1px solid #e5f0e8; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; transition: 0.1s; cursor: pointer; }
+.alumno-item:hover { background: #f6fcf8; }
+.alumno-info h4 { font-size: 1.1rem; margin-bottom: 4px; }
+.alumno-info p { font-size: 0.8rem; color: #6e8b78; }
+.badge { background: #eef6f0; padding: 5px 12px; border-radius: 50px; font-size: 0.75rem; font-weight: 600; color: #2a5536; }
+.preview-area { background: #f9fbf9; border-radius: 24px; padding: 24px; border: 1px solid #d0e2d4; margin-bottom: 20px; }
+.preview-title { text-align: center; font-size: 1.2rem; color: #1e3d28; margin-bottom: 20px; font-weight: 700; }
+.actions { display: flex; gap: 15px; justify-content: center; margin-top: 20px; flex-wrap: wrap; }
+.alert { padding: 12px; background: #e5f0e8; border-left: 5px solid #4a8c5c; margin-bottom: 20px; border-radius: 12px; }
+.alert-error { background: #fdeaea; border-left-color: #c0392b; }
+.hidden { display: none !important; }
+.spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #4a8c5c; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-box { padding: 30px; text-align: center; color: #6e8b78; }
+.stats-bar { background: #f6fcf8; padding: 12px 20px; border-radius: 12px; margin-bottom: 16px; display: flex; gap: 20px; flex-wrap: wrap; font-size: 0.85rem; color: #4a6651; }
+.stats-bar span { font-weight: 700; color: #1e3d28; }
+
+/* DIPLOMA Y CERTIFICADO - A4 sobre imagen de plantilla (diploma 297x210mm, certificado 210x297mm) */
+.diploma-template, .cert-template { position: relative; overflow: hidden; margin: 0 auto; background: #fbf6e9; box-shadow: 0 10px 30px rgba(0,0,0,0.15); color: #1e3d28; font-family: 'EB Garamond', 'Garamond', 'Georgia', 'Times New Roman', serif; }
+.diploma-template { width: 1123px; height: 794px; }
+.cert-template { width: 794px; height: 1122px; }
+.doc-bg { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+.doc-img { position: absolute; display: block; z-index: 2; object-fit: contain; }
+/* Cada texto vive en una "caja" de tamaño fijo: el script reduce la letra hasta que quepa, así nada se traslapa ni se sale */
+.doc-slot { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden; z-index: 2; }
+.doc-slot > .t { flex: none; }
+.doc-slot.wrap > .t { width: 100%; }
+.doc-slot.nowrap > .t { white-space: nowrap; }
+.doc-name { font-family: 'Cormorant Garamond', 'EB Garamond', 'Georgia', serif; font-weight: 700; color: #17402a; text-transform: uppercase; letter-spacing: 0.02em; line-height: 1.1; }
+.doc-body { color: #22342a; line-height: 1.42; font-weight: 500; }
+.doc-body b { color: #17402a; font-weight: 600; }
+.doc-label { color: #2a4a38; letter-spacing: 0.08em; font-weight: 500; }
+.doc-qr { position: absolute; z-index: 2; text-align: center; }
+.doc-qr > div:first-child { width: 100px; height: 100px; margin: 0 auto; }
+.doc-qr img { display: block; width: 100px; height: 100px; }
+.doc-qr-text { margin-top: 5px; font-size: 10px; line-height: 1.25; color: #2b3a2f; font-weight: 500; white-space: nowrap; }
+
+/* — Diploma (1123 x 794 px) — */
+.dp-label { left: 300px; top: 334px; width: 523px; height: 26px; }
+.dp-name  { left: 190px; top: 362px; width: 743px; height: 62px; }
+.dp-body  { left: 170px; top: 440px; width: 783px; height: 100px; }
+.dp-date  { left: 400px; top: 566px; width: 323px; height: 24px; }
+.dp-firma { left: 461px; top: 598px; width: 200px; height: 96px; }
+.dp-dir1  { left: 400px; top: 706px; width: 323px; height: 20px; }
+.dp-dir2  { left: 400px; top: 726px; width: 323px; height: 18px; }
+.dp-sello { left: 92px; top: 551px; width: 170px; }
+.dp-qr    { left: 840px; top: 588px; width: 130px; }
+
+/* — Certificado (794 x 1122 px) — */
+.ct-sub   { left: 130px; top: 486px; width: 534px; height: 28px; }
+.ct-name  { left: 118px; top: 522px; width: 558px; height: 70px; }
+.ct-body  { left: 118px; top: 606px; width: 558px; height: 168px; }
+.ct-date  { left: 217px; top: 812px; width: 360px; height: 26px; }
+.ct-firma { left: 297px; top: 842px; width: 200px; height: 68px; }
+.ct-firma-line { left: 307px; top: 912px; width: 180px; height: 0; border-top: 1px solid #5f7f6c; position: absolute; z-index: 2; }
+.ct-dir   { left: 277px; top: 918px; width: 240px; height: 66px; }
+.ct-qr    { left: 575px; top: 858px; width: 130px; }
+
+@media (max-width: 900px) {
+  .diploma-template:not(.no-transform) { transform: scale(0.55); transform-origin: top center; }
+  .cert-template:not(.no-transform) { transform: scale(0.55); transform-origin: top center; }
+}
+.no-transform { transform: none !important; transform-origin: top left !important; }
+.form-group textarea { width: 100%; padding: 12px 14px; border: 2px solid #dee8e0; border-radius: 14px; font-family: inherit; font-size: 0.9rem; background: #fbfefc; resize: vertical; }
+.form-group textarea:focus { outline: none; border-color: #4a8c5c; }
+.m-hint { font-size: 0.82rem; color: #4a6651; margin-top: 6px; line-height: 1.5; }
+.m-summary { font-size: 0.85rem; font-weight: 600; color: #1e3d28; margin: 4px 0 10px; }
+.m-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid #e5f0e8; }
+.m-in { padding: 10px 12px; border: 2px solid #dee8e0; border-radius: 12px; font-family: inherit; font-size: 0.88rem; background: #fbfefc; }
+.m-in:focus { outline: none; border-color: #4a8c5c; }
+.m-name { flex: 3; min-width: 220px; }
+.m-rut { flex: 1.2; min-width: 130px; }
+.m-pct { flex: 0.6; min-width: 80px; max-width: 100px; }
+.m-status { flex: 1.4; min-width: 150px; font-size: 0.8rem; font-weight: 600; }
+.m-ok { color: #27ae60; } .m-err { color: #c0392b; } .m-done { color: #2a5536; }
+.m-row button { padding: 9px 16px; }
+.m-okbox { background: #e8f6ec; border: 1px solid #b7dfc2; color: #1e6b3a; padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; margin-top: 12px; }
+.m-del { background: transparent !important; color: #c0392b !important; border: 2px solid #f0d0cc !important; padding: 8px 12px !important; }
+.badge-emit { display:inline-flex; }
+.h-row { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; padding:12px 4px; border-bottom:1px solid #e5f0e8; }
+.h-row.h-rev { background:#fff7f6; }
+.h-main { flex:3; min-width:220px; overflow-wrap:anywhere; }
+.h-sub { font-size:0.78rem; color:#5d7565; }
+.h-meta { flex:1.2; min-width:130px; font-size:0.8rem; color:#3d5a46; }
+.h-state { flex:0.8; min-width:100px; }
+.h-badge { display:inline-block; padding:4px 10px; border-radius:20px; font-size:0.75rem; font-weight:700; }
+.h-good { background:#e8f6ec; color:#1e6b3a; } .h-bad { background:#fdecea; color:#9b2335; }
+.h-actions { flex:2; min-width:220px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:0.8rem; }
+.h-actions a { color:#2a6b3c; font-weight:600; text-decoration:none; }
+.h-actions button { padding:7px 12px !important; font-size:0.8rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="search-panel">
+    <h2>🎓 Emisión de Diplomas y Certificados</h2>
+    <div id="authStatus" class="alert hidden"></div>
+    <div id="errorStatus" class="alert alert-error hidden"></div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>📘 Filtrar por curso</label>
+        <select id="courseFilter">
+          <option value="">-- Todos los cursos --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>🔍 Buscar alumno (nombre / RUT / email)</label>
+        <input type="text" id="searchInput" placeholder="Ej: 19.681.751-4 o nombre" autocomplete="off">
+      </div>
+      <div><button id="searchBtn">🔍 Buscar</button></div>
+    </div>
+
+    <div id="statsBar" class="stats-bar hidden"></div>
+    <div id="resultsList" class="alumnos-list hidden">
+      <div id="resultsContent"></div>
+      <button id="loadMoreBtn" class="btn-loadmore hidden">⬇️ Cargar 5 más</button>
+    </div>
+  </div>
+
+  <div class="search-panel hidden" id="manualPanel">
+    <h2>✍️ Nómina manual — cursos presenciales</h2>
+    <p class="m-hint">Para personas que no están en el LMS. Cada una recibe su diploma y su certificado con QR propio, y se pueden verificar en línea igual que los del LMS.</p>
+    <div class="form-row">
+      <div class="form-group" style="flex:3;min-width:260px">
+        <label>📘 Nombre del curso</label>
+        <input type="text" id="mCourseName" list="mCourseList" maxlength="150" autocomplete="off" placeholder="Ej: CURSO DE TECNICAS DE ASEO Y LIMPIEZA INDUSTRIAL">
+        <datalist id="mCourseList"></datalist>
+      </div>
+      <div class="form-group" style="flex:0.6;min-width:110px">
+        <label>⏱️ Horas</label>
+        <input type="number" id="mHours" min="1" max="999" step="1" placeholder="36">
+      </div>
+      <div class="form-group" style="flex:1.4;min-width:240px">
+        <label>📅 Mes en que se realizó</label>
+        <div style="display:flex;gap:8px">
+          <select id="mMonth" style="flex:2">
+            <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+            <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+            <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+          <input type="number" id="mYear" min="2020" max="2100" step="1" style="flex:1;min-width:90px">
+        </div>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:16px">
+      <label>📋 Pegar nómina (una persona por línea: Nombre ; RUT ; Nota opcional)</label>
+      <textarea id="mPaste" rows="4" placeholder="Juan Pérez Soto;12.345.678-5;85&#10;María González Díaz;9.876.543-3"></textarea>
+      <div class="m-hint">Sirve pegar directo desde Excel. Si no hay nota, el documento dice que finalizó el curso sin mencionar puntaje.</div>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <div><button type="button" id="mLoadBtn" class="btn-outline">⬇️ Cargar nómina</button></div>
+      <div><button type="button" id="mAddBtn" class="btn-outline">+ Agregar persona</button></div>
+      <div><button type="button" id="mSaveBtn" class="btn-outline">💾 Guardar nómina</button></div>
+      <div><button type="button" id="mClearBtn" class="btn-outline">Limpiar</button></div>
+    </div>
+    <div id="manualOk" class="m-okbox hidden"></div>
+    <div id="mRows" style="margin-top:16px"></div>
+
+    <div style="margin-top:26px;padding-top:18px;border-top:2px solid #e5f0e8">
+      <h3 style="font-size:1.05rem;color:#1e3d28">📚 Nóminas guardadas</h3>
+      <p class="m-hint">Aquí quedan las personas de cursos presenciales, ordenadas por curso y mes. Búscalas para volver a emitir su diploma y certificado (mismo QR).</p>
+      <div class="form-row" style="margin-top:10px">
+        <div class="form-group" style="flex:2;min-width:240px">
+          <label>Curso</label>
+          <select id="mSavedCourse"><option value="">Todos los cursos</option></select>
+        </div>
+        <div class="form-group" style="flex:2;min-width:200px">
+          <label>Buscar por nombre o RUT</label>
+          <input type="text" id="mSavedSearch" placeholder="Ej: Pérez o 12.345.678-5">
+        </div>
+        <div style="align-self:flex-end"><button type="button" id="mSavedLoadBtn" class="btn-outline">🔄 Cargar lista</button></div>
+      </div>
+      <div id="mSavedList" style="margin-top:8px"></div>
+    </div>
+  </div>
+
+  <div class="search-panel hidden" id="histPanel">
+    <h2>🗂️ Historial de emisiones</h2>
+    <p class="m-hint">Todos los diplomas y certificados emitidos (LMS y presenciales). Aquí puedes anular un documento (su QR pasará a mostrar «Documento anulado») o restaurarlo.</p>
+    <div class="form-row" style="margin-top:10px">
+      <div class="form-group" style="flex:2;min-width:220px"><label>Curso</label>
+        <select id="hCourse"><option value="">Todos los cursos</option></select></div>
+      <div class="form-group" style="flex:1;min-width:140px"><label>Estado</label>
+        <select id="hState"><option value="">Todos</option><option value="vig">Vigentes</option><option value="rev">Anulados</option></select></div>
+      <div class="form-group" style="flex:2;min-width:200px"><label>Buscar nombre, RUT o código</label>
+        <input type="text" id="hSearch" placeholder="Ej: Pérez o 12.345.678-5" autocomplete="off"></div>
+    </div>
+    <div class="form-row" style="margin-top:10px">
+      <div><button type="button" id="hLoadBtn" class="btn-outline">🔄 Cargar historial</button></div>
+      <div><button type="button" id="hCsvBtn" class="btn-outline">📥 Exportar CSV</button></div>
+    </div>
+    <div id="hSummary" class="m-summary"></div>
+    <div id="hList"><p class="m-hint">Presiona «Cargar historial».</p></div>
+    <button type="button" id="hMoreBtn" class="btn-loadmore hidden">⬇️ Cargar más</button>
+  </div>
+
+  <div id="previewDiplomaContainer" class="preview-area hidden">
+    <div class="preview-title">📄 Vista Previa — Diploma de Honor (Horizontal)</div>
+    <div class="diploma-template" id="diplomaTemplate"></div>
+    <div class="actions">
+      <button id="downloadDiplomaBtn" class="btn-outline">⬇️ Descargar Diploma PDF</button>
+    </div>
+  </div>
+
+  <div id="previewCertContainer" class="preview-area hidden">
+    <div class="preview-title">📜 Vista Previa — Certificado de Aprobación (Vertical)</div>
+    <div class="cert-template" id="certTemplate"></div>
+    <div class="actions">
+      <button id="downloadCertBtn" class="btn-outline">⬇️ Descargar Certificado PDF</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== IMÁGENES DESDE GITHUB RAW ==========
+const IMG_LOGO = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/logo.png";
+const IMG_FIRMA = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/firma.png";
+const IMG_SELLO = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/sello.png";
+const IMG_WATERMARK = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/logo.png";
+const IMG_PLANTILLA_DIPLOMA = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/plantilla_diploma.jpg";
+const IMG_PLANTILLA_CERT = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/plantilla_certificado.jpg";
+const IMG_SELLO_OFICIAL = "https://raw.githubusercontent.com/INASEP/INASEPLMS/main/sello_oficial.png";
+// Cursos cuyo diploma NO menciona a la SPD ni al OS10 (texto en minúsculas y sin tildes; basta que el título del curso lo contenga)
+const CURSOS_SIN_OS10 = ["aseo y limpieza industrial"];
+
+// ========== FIREBASE ==========
+const firebaseConfig = {
+  apiKey: "AIzaSyDnzXP59rK49bmKbDeYX8oUtobVaKyI2A4",
+  authDomain: "mi-lms-563bf.firebaseapp.com",
+  projectId: "mi-lms-563bf",
+  storageBucket: "mi-lms-563bf.firebasestorage.app",
+  messagingSenderId: "303910884065",
+  appId: "1:303910884065:web:5f2fe854e17fd25ed21da0"
+};
+try {
+  firebase.initializeApp(firebaseConfig);
+} catch(e) {
+  console.log("Firebase ya inicializado:", e.message);
+}
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let _adminVerified = false; // No modificar desde consola
+let selectedStudent = null;
+let selectedCourseResult = null;
+let diplomaToken = null;
+let certToken = null;
+let courseHoursCache = {};   // courseId → horas (para no preguntar dos veces)
+let coursesCache = {};       // courseId → datos del curso del LMS
+let _registroOk = false;     // true cuando ambos documentos quedaron registrados para verificación
+
+let allResults = [];
+let filteredResults = [];
+let displayedCount = 0;
+const PAGE_SIZE = 5;
+
+const $ = id => document.getElementById(id);
+
+function showError(msg) { $('errorStatus').textContent = msg; $('errorStatus').classList.remove('hidden'); }
+function clearError() { $('errorStatus').classList.add('hidden'); }
+function setLoading(isLoading) {
+  $('searchBtn').disabled = isLoading;
+  if (isLoading) {
+    $('resultsList').classList.remove('hidden');
+    $('resultsContent').innerHTML = '<div class="loading-box"><span class="spinner"></span> Consultando base de datos...</div>';
+    $('loadMoreBtn').classList.add('hidden');
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   v3 — HISTORIAL, CONTROL DE DUPLICADOS, ANULACIÓN, INTEGRIDAD
+════════════════════════════════════════════════════════════ */
+let diplomasDocs = [];        // todos los documentos de la colección "diplomas"
+let diplomasLoaded = false;
+let diplomasLoadedAt = 0;
+let emitIdx = {};             // "uid_courseId" → { dip, cert, issuedAt, allRevoked }
+
+function tsMs(v) {
+  if (!v) return 0;
+  if (typeof v.toMillis === 'function') return v.toMillis();
+  if (v instanceof Date) return v.getTime();
+  if (typeof v.seconds === 'number') return v.seconds * 1000;
+  return 0;
+}
+function tsDateOf(v) { const m = tsMs(v); return m ? new Date(m) : null; }
+function fmtFecha(d) {
+  return d ? d.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+}
+function verifyBase() {
+  const p = window.location.pathname;
+  const pathBase = p.endsWith('/') ? p : p.substring(0, p.lastIndexOf('/') + 1);
+  return window.location.origin + pathBase + 'verificar.html?id=';
+}
+
+async function loadDiplomas(force) {
+  if (!_adminVerified) return;
+  if (!force && diplomasLoaded && (Date.now() - diplomasLoadedAt) < CACHE_TTL_MS) return;
+  const snap = await db.collection('diplomas').get();
+  diplomasDocs = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+  diplomasLoaded = true;
+  diplomasLoadedAt = Date.now();
+  buildEmitIdx();
+  paintEmitBadges();
+  histRefresh();
+}
+
+// Índice alumno+curso → documentos vigentes (para no emitir dos veces lo mismo)
+function buildEmitIdx() {
+  const pairs = {};
+  diplomasDocs.forEach(x => {
+    if (!x.studentId || !x.courseId) return;
+    const k = x.studentId + '_' + x.courseId;
+    (pairs[k] = pairs[k] || []).push(x);
+  });
+  const idx = {};
+  Object.keys(pairs).forEach(k => {
+    const live = pairs[k].filter(x => x.revoked !== true);
+    if (!live.length) { idx[k] = { allRevoked: true }; return; }
+    live.sort((a, b) => tsMs(b.issuedAt) - tsMs(a.issuedAt));
+    const best = live[0];
+    let dip = best.diplomaToken || (best.type === 'diploma' ? best.id : null);
+    let cert = best.certToken || (best.type === 'certificado' ? best.id : null);
+    live.forEach(x => {
+      if (!dip && x.type === 'diploma') dip = x.id;
+      if (!cert && x.type === 'certificado') cert = x.id;
+    });
+    idx[k] = { dip, cert, issuedAt: tsDateOf(best.issuedAt), allRevoked: false };
+  });
+  emitIdx = idx;
+}
+
+function paintEmitBadges() {
+  document.querySelectorAll('.emit-badge').forEach(el => {
+    const ex = emitIdx[el.dataset.k];
+    if (!ex) { el.innerHTML = ''; return; }
+    if (ex.allRevoked) {
+      el.innerHTML = '<span class="badge" style="background:#fdecea;color:#9b2335;">⛔ Anulado</span>';
+    } else {
+      el.innerHTML = '<span class="badge" style="background:#e8f6ec;color:#1e6b3a;">🏅 Emitido' +
+        (ex.issuedAt ? ': ' + fmtFecha(ex.issuedAt) : '') + '</span>';
+    }
+  });
+}
+
+// Mantiene el índice local al día después de emitir (sin volver a leer toda la colección)
+function onEmissionRegistered(cd, keepIssued) {
+  const now = new Date();
+  [['diploma', diplomaToken], ['certificado', certToken]].forEach(([type, id]) => {
+    const prev = diplomasDocs.find(d => d.id === id);
+    const rec = {
+      id, type, token: id,
+      studentId: cd.studentId, studentName: cd.studentName, studentRut: cd.studentRut,
+      courseId: cd.courseId, courseName: cd.courseName,
+      modality: cd.modality, source: cd.source,
+      diplomaToken: cd.diplomaToken, certToken: cd.certToken,
+      revoked: cd.revoked === false ? false : (prev ? prev.revoked === true : false)
+    };
+    if (!prev || !keepIssued) rec.issuedAt = now;
+    if (prev) Object.assign(prev, rec); else diplomasDocs.push(rec);
+  });
+  buildEmitIdx();
+  paintEmitBadges();
+  histRefresh();
+}
+
+// Revisión de integridad: recalcula el puntaje con las respuestas guardadas del propio resultado
+async function chequearIntegridad(student, course) {
+  try {
+    if (!course.resultId) return { warn: false };
+    const rs = await db.collection('quizResults').doc(course.resultId).get();
+    if (!rs.exists) return { warn: false };
+    const r = rs.data();
+    const problemas = [];
+    if (r.userId !== student.uid) problemas.push('el resultado pertenece a otro usuario');
+    if (!Array.isArray(r.respuestas) || !r.respuestas.length) {
+      problemas.push('el resultado no tiene respuestas guardadas');
+    } else {
+      const ok = r.respuestas.filter(a => a.userAnswer !== null && a.userAnswer === a.correctAnswer).length;
+      const pct = Math.round(ok * 100 / r.respuestas.length);
+      if (pct !== r.percentage) problemas.push('registra ' + r.percentage + '% pero sus respuestas guardadas dan ' + pct + '%');
+      if (r.total !== r.respuestas.length) problemas.push('el total registrado (' + r.total + ') no coincide con las respuestas guardadas (' + r.respuestas.length + ')');
+      if (r.quizId) {
+        const qs = await db.collection('quizzes').doc(r.quizId).get();
+        if (qs.exists) {
+          const qList = qs.data().questions || [];
+          const cambiadas = r.respuestas.filter(a => {
+            const p = qList.find(q => q.question === a.question);
+            return !p || p.correctAnswer !== a.correctAnswer;
+          }).length;
+          if (cambiadas) problemas.push('el examen se modificó después de rendirse (' + cambiadas + ' pregunta(s) distintas)');
+        }
+      }
+    }
+    if (!problemas.length) return { warn: false };
+    return {
+      warn: true,
+      msg: '🔎 Revisión de integridad — diferencias en el resultado de ' + student.name + ':\n\n• ' +
+        problemas.join('\n• ') + '\n\n¿Emitir de todas formas?'
+    };
+  } catch (e) {
+    return { warn: false };   // si no se puede revisar, no se bloquea la emisión
+  }
+}
+
+/* ───────── HISTORIAL ───────── */
+let histRows = [];
+let histFiltered = [];
+let histShown = 0;
+const HIST_PAGE = 20;
+
+function buildHistRows() {
+  const groups = {};
+  diplomasDocs.forEach(x => {
+    const dip = x.diplomaToken || (x.type === 'diploma' ? x.id : null);
+    const cert = x.certToken || (x.type === 'certificado' ? x.id : null);
+    const key = (x.diplomaToken || x.certToken) ? (dip || '') + '|' + (cert || '') : 'solo|' + x.id;
+    const g = groups[key] || (groups[key] = {
+      dip, cert, name: x.studentName || '', rut: x.studentRut || '', course: x.courseName || '',
+      modality: x.modality || '', source: x.source || '', issuedAt: x.issuedAt,
+      nRev: 0, reason: '', docIds: [], types: {}
+    });
+    g.docIds.push(x.id);
+    g.types[x.type] = true;
+    if (!g.dip && x.type === 'diploma') g.dip = x.id;
+    if (!g.cert && x.type === 'certificado') g.cert = x.id;
+    if (x.revoked === true) { g.nRev++; if (x.revokedReason) g.reason = x.revokedReason; }
+    if (tsMs(x.issuedAt) > tsMs(g.issuedAt)) g.issuedAt = x.issuedAt;
+  });
+  histRows = Object.values(groups).map((g, i) => {
+    g.hid = i;
+    g.revoked = g.nRev > 0 && g.nRev === g.docIds.length;
+    return g;
+  }).sort((a, b) => tsMs(b.issuedAt) - tsMs(a.issuedAt));
+}
+
+function fillHistCourses() {
+  const sel = $('hCourse');
+  const actual = sel.value;
+  const names = [...new Set(histRows.map(r => r.course).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  sel.innerHTML = '<option value="">Todos los cursos</option>';
+  names.forEach(n => {
+    const o = document.createElement('option');
+    o.value = n; o.textContent = n; sel.appendChild(o);
+  });
+  if (names.includes(actual)) sel.value = actual;
+}
+
+function histRefresh() {
+  if (!$('hList') || !diplomasLoaded) return;
+  buildHistRows();
+  fillHistCourses();
+  histRender(true);
+}
+
+function histApplyFilters() {
+  const c = $('hCourse').value;
+  const st = $('hState').value;
+  const q = normTxt($('hSearch').value);
+  histFiltered = histRows.filter(r =>
+    (!c || r.course === c) &&
+    (!st || (st === 'rev') === r.revoked) &&
+    (!q || normTxt(r.name + ' ' + r.rut + ' ' + (r.dip || '') + ' ' + (r.cert || '')).includes(q)));
+}
+
+function histRender(reset) {
+  histApplyFilters();
+  if (reset) histShown = 0;
+  histShown = Math.min(histFiltered.length, histShown + HIST_PAGE);
+  const vig = histFiltered.filter(r => !r.revoked).length;
+  $('hSummary').textContent = histFiltered.length + ' emisión(es) · ' + vig + ' vigente(s) · ' + (histFiltered.length - vig) + ' anulada(s)';
+  const base = verifyBase();
+  $('hList').innerHTML = histFiltered.length ? histFiltered.slice(0, histShown).map(r => {
+    const mod = r.modality === 'presencial' ? 'Presencial' : (r.modality === 'online' ? 'Online' : '—');
+    const links = [
+      r.dip ? '<a href="' + escapeHtml(base + encodeURIComponent(r.dip)) + '" target="_blank" rel="noopener noreferrer">🏅 Diploma</a>' : '',
+      r.cert ? '<a href="' + escapeHtml(base + encodeURIComponent(r.cert)) + '" target="_blank" rel="noopener noreferrer">📜 Certificado</a>' : ''
+    ].join('');
+    return '<div class="h-row ' + (r.revoked ? 'h-rev' : '') + '">' +
+      '<div class="h-main"><b>' + escapeHtml(r.name || 'Sin nombre') + '</b><br><span class="h-sub">' +
+        escapeHtml(r.rut || 'Sin RUT') + ' · ' + escapeHtml(r.course || 'Curso') + '</span></div>' +
+      '<div class="h-meta">' + mod + ' · ' + fmtFecha(tsDateOf(r.issuedAt)) + '</div>' +
+      '<div class="h-state">' + (r.revoked
+        ? '<span class="h-badge h-bad" title="' + escapeHtml(r.reason) + '">⛔ Anulado</span>'
+        : '<span class="h-badge h-good">✅ Vigente</span>') + '</div>' +
+      '<div class="h-actions">' + links +
+        (r.revoked
+          ? '<button type="button" class="btn-outline" onclick="histRestaurar(' + r.hid + ')">↩️ Restaurar</button>'
+          : '<button type="button" class="btn-outline m-del" onclick="histAnular(' + r.hid + ')">Anular</button>') +
+      '</div></div>';
+  }).join('') : '<p class="m-hint">' + (diplomasLoaded ? 'No hay emisiones con estos filtros.' : 'Presiona «Cargar historial».') + '</p>';
+  $('hMoreBtn').classList.toggle('hidden', histShown >= histFiltered.length);
+  $('hMoreBtn').textContent = '⬇️ Cargar más (' + (histFiltered.length - histShown) + ' restantes)';
+}
+
+async function histAnular(hid) {
+  if (!_adminVerified) { showError('⛔ Acceso no autorizado.'); return; }
+  const r = histRows[hid];
+  if (!r || !r.docIds.length) return;
+  const motivo = prompt('Motivo de la anulación de los documentos de ' + (r.name || 'esta persona') +
+    '.\nATENCIÓN: el motivo se muestra públicamente en la página de verificación.', '');
+  if (motivo === null) return;
+  const m = motivo.trim().slice(0, 200);
+  if (m.length < 3) { showError('⚠️ Indica un motivo (mínimo 3 caracteres).'); return; }
+  if (!confirm('¿Anular el diploma y el certificado de ' + (r.name || 'esta persona') + '?\nLos QR impresos pasarán a mostrar «Documento anulado». Puedes restaurarlos después.')) return;
+  clearError();
+  try {
+    const batch = db.batch();
+    r.docIds.forEach(id => batch.update(db.collection('diplomas').doc(id), {
+      revoked: true,
+      revokedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      revokedReason: m,
+      revokedBy: auth.currentUser ? auth.currentUser.uid : null
+    }));
+    await batch.commit();
+    diplomasDocs.forEach(d => {
+      if (r.docIds.includes(d.id)) { d.revoked = true; d.revokedReason = m; d.revokedAt = new Date(); }
+    });
+    buildEmitIdx(); paintEmitBadges(); histRefresh();
+  } catch (err) {
+    showError('⚠️ No se pudo anular: ' + (err.message || err.code));
+  }
+}
+
+async function histRestaurar(hid) {
+  if (!_adminVerified) { showError('⛔ Acceso no autorizado.'); return; }
+  const r = histRows[hid];
+  if (!r || !r.docIds.length) return;
+  if (!confirm('¿Restaurar los documentos de ' + (r.name || 'esta persona') + '? Volverán a verificarse como vigentes.')) return;
+  clearError();
+  try {
+    const batch = db.batch();
+    r.docIds.forEach(id => batch.update(db.collection('diplomas').doc(id), {
+      revoked: false,
+      restoredAt: firebase.firestore.FieldValue.serverTimestamp(),
+      revokedAt: firebase.firestore.FieldValue.delete(),
+      revokedReason: firebase.firestore.FieldValue.delete()
+    }));
+    await batch.commit();
+    diplomasDocs.forEach(d => {
+      if (r.docIds.includes(d.id)) { d.revoked = false; delete d.revokedReason; delete d.revokedAt; }
+    });
+    buildEmitIdx(); paintEmitBadges(); histRefresh();
+  } catch (err) {
+    showError('⚠️ No se pudo restaurar: ' + (err.message || err.code));
+  }
+}
+
+function histCsv() {
+  histApplyFilters();
+  if (!histFiltered.length) { showError('⚠️ No hay datos para exportar.'); return; }
+  const safe = v => {
+    let s = String(v == null ? '' : v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;            // evita fórmulas en Excel
+    return '"' + s.replace(/"/g, '""') + '"';
+  };
+  const head = ['Fecha emisión', 'Alumno', 'RUT', 'Curso', 'Modalidad', 'Origen', 'Estado', 'Motivo anulación', 'Código diploma', 'Código certificado'];
+  const lines = [head.map(safe).join(',')].concat(histFiltered.map(r => [
+    fmtFecha(tsDateOf(r.issuedAt)), r.name, r.rut, r.course,
+    r.modality === 'presencial' ? 'Presencial' : (r.modality === 'online' ? 'Online' : ''),
+    r.source === 'manual' ? 'Manual' : (r.source === 'lms' ? 'LMS' : ''),
+    r.revoked ? 'Anulado' : 'Vigente', r.reason, r.dip || '', r.cert || ''
+  ].map(safe).join(',')));
+  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'historial_emisiones_' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+$('hLoadBtn').addEventListener('click', async () => {
+  const btn = $('hLoadBtn');
+  btn.disabled = true; clearError();
+  try { await loadDiplomas(true); }
+  catch (err) { showError('⚠️ No se pudo leer el historial (' + (err.message || err.code) + ').'); }
+  finally { btn.disabled = false; }
+});
+$('hCsvBtn').addEventListener('click', histCsv);
+$('hMoreBtn').addEventListener('click', () => histRender(false));
+$('hCourse').addEventListener('change', () => histRender(true));
+$('hState').addEventListener('change', () => histRender(true));
+$('hSearch').addEventListener('input', () => histRender(true));
+
+// AUTENTICACIÓN
+auth.onAuthStateChanged(async (user) => {
+  if (!user) {
+    $('authStatus').innerHTML = '🔐 Debes iniciar sesión como administrador. <a href="#" onclick="auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider())">Iniciar sesión con Google</a>';
+    $('authStatus').classList.remove('hidden');
+    $('searchBtn').disabled = true;
+    return;
+  }
+  try {
+    const userDoc = await db.collection('users').doc(user.uid).get();
+    if (userDoc.exists && userDoc.data().role === 'admin') {
+      _adminVerified = true;
+      $('manualPanel').classList.remove('hidden');
+      $('histPanel').classList.remove('hidden');
+      $('authStatus').classList.add('hidden');
+      $('searchBtn').disabled = false;
+      await loadCourses();
+      // Mostrar mensaje inicial en lugar de cargar todo
+      $('statsBar').classList.remove('hidden');
+      $('statsBar').innerHTML = `<div>🔍 Usá los filtros y presioná <strong>Buscar</strong> para ver alumnos aprobados</div>`;
+      $('resultsList').classList.remove('hidden');
+      $('resultsContent').innerHTML = '<div class="loading-box">Seleccioná un curso o escribí un nombre/RUT y presioná Buscar.</div>';
+      loadDiplomas(false).catch(e => console.warn('Índice de emisiones no disponible:', e.message));
+    } else {
+      $('authStatus').innerHTML = '⛔ Acceso restringido. Solo administradores.';
+      $('authStatus').classList.remove('hidden');
+      $('searchBtn').disabled = true;
+    }
+  } catch (err) {
+    showError('Error al verificar permisos: ' + err.message);
+    $('searchBtn').disabled = true;
+  }
+});
+
+// CARGAR CURSOS PARA EL FILTRO
+async function loadCourses() {
+  if (!_adminVerified) return;
+  try {
+    const snapshot = await db.collection('courses').get();
+    const select = $('courseFilter');
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      coursesCache[doc.id] = data;
+      const option = document.createElement('option');
+      option.value = doc.id;
+      option.textContent = data.title || 'Curso sin nombre';
+      select.appendChild(option);
+    });
+    fillManualCourseList();
+  } catch (err) {
+    console.error('Error cargando cursos:', err);
+  }
+}
+
+// CARGA INICIAL DE DATOS
+// Optimizada: (1) solo descarga resultados aprobados (>=60), (2) trae alumnos
+// en lotes paralelos con "in" en vez de uno por uno, (3) reutiliza los cursos
+// ya cargados, (4) guarda en memoria 5 min para que cambiar filtros sea instantáneo.
+const CACHE_TTL_MS = 5 * 60 * 1000;
+let _dataLoadedAt = 0;
+let _loadPromise = null;
+
+async function fetchDocsByIds(collectionName, ids) {
+  const out = new Map();
+  const chunks = [];
+  for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30)); // límite de "in": 30
+  await Promise.all(chunks.map(async chunk => {
+    const snap = await db.collection(collectionName)
+      .where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get();
+    snap.forEach(d => out.set(d.id, d.data()));
+  }));
+  return out;
+}
+
+async function loadInitialData(force) {
+  if (!_adminVerified) return;
+  // Datos recientes en memoria: solo reaplicar filtros (instantáneo)
+  if (!force && _dataLoadedAt && (Date.now() - _dataLoadedAt) < CACHE_TTL_MS) {
+    clearError();
+    applyFilters();
+    return;
+  }
+  // Evita cargas simultáneas si el usuario hace clic varias veces
+  if (_loadPromise) return _loadPromise;
+
+  _loadPromise = (async () => {
+    setLoading(true); clearError();
+    try {
+      // Solo aprobados: consulta de un único campo (no requiere índice compuesto)
+      const resultsSnap = await db.collection('quizResults').where('percentage', '>=', 60).get();
+
+      const userCourseBest = new Map();
+      resultsSnap.forEach(doc => {
+        const r = doc.data();
+        const key = r.userId + '_' + r.courseId;
+        if (!userCourseBest.has(key) || userCourseBest.get(key).percentage < r.percentage) {
+          userCourseBest.set(key, { ...r, resultId: doc.id });
+        }
+      });
+
+      const bests = [...userCourseBest.values()];
+      const userIds = [...new Set(bests.map(r => r.userId))];
+      const courseIds = [...new Set(bests.map(r => r.courseId))];
+
+      // Los cursos ya están en coursesCache; solo se piden los que falten
+      const missingCourses = courseIds.filter(cid => !coursesCache[cid]);
+      const [userMap, extraCourses] = await Promise.all([
+        fetchDocsByIds('users', userIds),
+        missingCourses.length ? fetchDocsByIds('courses', missingCourses) : Promise.resolve(new Map())
+      ]);
+      extraCourses.forEach((data, cid) => { coursesCache[cid] = data; });
+
+      const list = [];
+      for (const result of bests) {
+        const user = userMap.get(result.userId);
+        if (!user || user.role !== 'student') continue;
+        const course = coursesCache[result.courseId] || { title: 'Curso' };
+        let finishedDate = null;
+        if (result.createdAt && result.createdAt.toDate) finishedDate = result.createdAt.toDate();
+        else if (result.createdAt instanceof Date) finishedDate = result.createdAt;
+        list.push({
+          uid: result.userId,
+          name: user.name || 'Sin nombre',
+          rut: user.rut || '',
+          email: user.email || '',
+          courseId: result.courseId,
+          courseTitle: course.title || 'Curso',
+          courseHours: course.hours,
+          percentage: result.percentage,
+          score: result.score + '/' + result.total,
+          resultId: result.resultId,
+          finishedDate: finishedDate
+        });
+      }
+
+      // Ordenar por fecha de término, más reciente primero
+      list.sort((a, b) => {
+        if (!a.finishedDate && !b.finishedDate) return a.name.localeCompare(b.name);
+        if (!a.finishedDate) return 1;
+        if (!b.finishedDate) return -1;
+        return b.finishedDate - a.finishedDate;
+      });
+      allResults = list;
+      _dataLoadedAt = Date.now();
+      applyFilters();
+    } catch (err) {
+      showError('Error al cargar datos: ' + err.message);
+      $('resultsContent').innerHTML = '';
+    } finally {
+      $('searchBtn').disabled = !_adminVerified;
+      _loadPromise = null;
+    }
+  })();
+  return _loadPromise;
+}
+
+// APLICAR FILTROS Y MOSTRAR
+function applyFilters() {
+  const courseFilter = $('courseFilter').value;
+  const searchQuery = $('searchInput').value.trim().toLowerCase();
+
+  let filtered = allResults;
+
+  if (courseFilter) {
+    filtered = filtered.filter(r => r.courseId === courseFilter);
+  }
+
+  if (searchQuery) {
+    filtered = filtered.filter(r => 
+      r.name.toLowerCase().includes(searchQuery) ||
+      (r.rut && r.rut.toLowerCase().includes(searchQuery)) ||
+      (r.email && r.email.toLowerCase().includes(searchQuery))
+    );
+  }
+
+  $('statsBar').classList.remove('hidden');
+  $('resultsList').classList.remove('hidden');
+  const courseText = $('courseFilter').value ? $('courseFilter').options[$('courseFilter').selectedIndex].text : 'Todos';
+  const masReciente = filtered.find(r => r.finishedDate);
+  const fechaLabel = masReciente
+    ? masReciente.finishedDate.toLocaleDateString('es-CL', { day:'2-digit', month:'2-digit', year:'numeric' })
+    : '';
+  $('statsBar').innerHTML = `
+    <div>📊 <span>${allResults.length}</span> aprobados totales</div>
+    <div>🔍 <span>${filtered.length}</span> mostrando</div>
+    <div>📘 Curso: <span>${courseText}</span></div>
+    ${fechaLabel ? `<div>📅 Último: <span>${fechaLabel}</span></div>` : ''}
+  `;
+
+  filteredResults = filtered;
+  displayedCount = 0;
+  renderPage();
+}
+
+// RENDERIZAR PÁGINA
+function renderPage() {
+  const filtered = filteredResults;
+  const toShow = filtered.slice(0, displayedCount + PAGE_SIZE);
+  displayedCount = toShow.length;
+
+  let html = '';
+  for (const r of toShow) {
+    const fechaStr = r.finishedDate
+      ? r.finishedDate.toLocaleDateString('es-CL', { day:'2-digit', month:'2-digit', year:'numeric' })
+      : 'Sin fecha';
+    html += `<div class="alumno-item" 
+      data-uid="${escapeHtml(r.uid)}"
+      data-name="${escapeHtml(r.name)}"
+      data-rut="${escapeHtml(r.rut)}"
+      data-email="${escapeHtml(r.email)}"
+      data-courseid="${escapeHtml(r.courseId)}"
+      data-coursetitle="${escapeHtml(r.courseTitle)}"
+      data-coursehours="${r.courseHours ? Number(r.courseHours) : ''}"
+      data-percentage="${r.percentage}"
+      data-score="${escapeHtml(r.score)}"
+      data-finisheddate="${r.finishedDate ? r.finishedDate.toISOString() : ''}">
+      <div class="alumno-info"><h4>${escapeHtml(r.name)}</h4><p>${escapeHtml(r.rut) || 'Sin RUT'} | ${escapeHtml(r.email)}</p></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span class="badge">✅ ${escapeHtml(r.courseTitle)} — ${r.percentage}%</span>
+        <span class="badge" style="background:#fff8e1;color:#7a5800;">📅 Terminó: ${fechaStr}</span>
+        <span class="emit-badge" data-k="${escapeHtml(r.uid + '_' + r.courseId)}"></span>
+      </div>
+    </div>`;
+  }
+
+  if (toShow.length === 0) {
+    $('resultsContent').innerHTML = '<div class="loading-box">No se encontraron resultados con estos filtros.</div>';
+  } else {
+    $('resultsContent').innerHTML = html;
+  }
+
+  if (displayedCount < filtered.length) {
+    $('loadMoreBtn').classList.remove('hidden');
+    $('loadMoreBtn').textContent = `⬇️ Cargar 5 más (${filtered.length - displayedCount} restantes)`;
+  } else {
+    $('loadMoreBtn').classList.add('hidden');
+  }
+
+  attachClickHandlers();
+  paintEmitBadges();
+}
+
+// CARGAR MÁS
+$('loadMoreBtn').addEventListener('click', () => {
+  renderPage();
+});
+
+// EVENTOS DE FILTRO
+async function buscar(force) {
+  await loadInitialData(force === true);
+}
+$('courseFilter').addEventListener('change', () => buscar());
+// El botón Buscar siempre trae datos frescos; filtros y Enter usan la memoria si es reciente
+$('searchBtn').addEventListener('click', () => buscar(true));
+$('searchInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') buscar(); });
+
+// CLICK EN ALUMNO
+function attachClickHandlers() {
+  document.querySelectorAll('.alumno-item').forEach(el => {
+    el.addEventListener('click', async () => {
+      selectedStudent = {
+        uid: el.dataset.uid,
+        name: el.dataset.name,
+        rut: el.dataset.rut,
+        email: el.dataset.email
+      };
+      const rawDate = el.dataset.finisheddate;
+      selectedCourseResult = {
+        courseId: el.dataset.courseid,
+        courseTitle: el.dataset.coursetitle,
+        hours: parseInt(el.dataset.coursehours) || null,
+        percentage: Math.min(100, Math.max(0, parseInt(el.dataset.percentage) || 0)),
+        score: el.dataset.score,
+        date: rawDate ? new Date(rawDate) : new Date()
+      };
+      const rr = allResults.find(x => x.uid === selectedStudent.uid && x.courseId === selectedCourseResult.courseId);
+      if (rr) selectedCourseResult.resultId = rr.resultId;
+      clearError();
+      if (!diplomasLoaded) { try { await loadDiplomas(false); } catch (e) { showError('⚠️ No se pudo revisar si ya fue emitido (' + (e.message || e.code) + '). Presiona «Cargar historial» y reintenta.'); return; } }
+      const ex = emitIdx[selectedStudent.uid + '_' + selectedCourseResult.courseId];
+      if (ex && ex.allRevoked) {
+        showError('⛔ Los documentos de ' + selectedStudent.name + ' para este curso están ANULADOS. Para volver a emitirlos, restáuralos primero desde el historial.');
+        return;
+      }
+      const opts = {};
+      if (ex && !ex.allRevoked) {
+        if (!confirm('ℹ️ ' + selectedStudent.name + ' ya tiene documentos emitidos en este curso' + (ex.issuedAt ? ' (' + fmtFecha(ex.issuedAt) + ')' : '') + '.\n\n¿Volver a generarlos con el MISMO QR y la misma fecha de emisión? (No se crean documentos duplicados).')) return;
+        opts.tokens = { dip: ex.dip, cert: ex.cert };
+      }
+      const chk = await chequearIntegridad(selectedStudent, selectedCourseResult);
+      if (chk.warn && !confirm(chk.msg)) return;
+      await generateBothDocuments(opts);
+    });
+  });
+}
+
+// GENERAR DOCUMENTOS
+async function generateBothDocuments(opts = {}) {
+  if (!_adminVerified) { showError('⛔ Acceso no autorizado.'); return; }
+  const student = selectedStudent;
+  const course = selectedCourseResult;
+  if (!student || !course) return;
+  clearError();
+
+  // Tokens criptográficamente aleatorios (no predecibles)
+  const _uuid = () => (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID().replace(/-/g,'')
+    : Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b=>b.toString(16).padStart(2,'0')).join('');
+  diplomaToken = (opts.tokens && opts.tokens.dip)  || ('DIP_'  + _uuid().substring(0, 24));
+  certToken    = (opts.tokens && opts.tokens.cert) || ('CERT_' + _uuid().substring(0, 24));
+  _registroOk = false;
+  // Si se reutiliza el QR: no se emite si fue anulado, y se conserva la fecha de emisión original
+  let keepIssued = false;
+  if (opts.tokens && (opts.tokens.dip || opts.tokens.cert)) {
+    try {
+      const prevSnaps = await Promise.all([diplomaToken, certToken].map(t => db.collection('diplomas').doc(t).get()));
+      if (prevSnaps.some(sn => sn.exists && sn.data().revoked === true)) {
+        showError('⛔ Estos documentos están ANULADOS. Restáuralos desde el historial antes de volver a emitirlos.');
+        return;
+      }
+      keepIssued = prevSnaps.every(sn => sn.exists);
+    } catch (e) { /* si no se puede leer, se emite igual conservando el comportamiento anterior */ }
+  }
+  $('downloadDiplomaBtn').disabled = true;
+  $('downloadCertBtn').disabled = true;
+
+  // URL base para el QR - funciona en GitHub Pages y subdirectorios
+  const pathBase = window.location.pathname.endsWith('/')
+    ? window.location.pathname
+    : window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+  const baseUrl = window.location.origin + pathBase;
+  const diplomaUrl = `${baseUrl}verificar.html?id=${diplomaToken}`;
+  const certUrl = `${baseUrl}verificar.html?id=${certToken}`;
+
+  // Carga horaria: la define el curso (o el formulario manual). Ya no se adivina por el título.
+  const horas = course.hours ? course.hours : await resolveCourseHours(course);
+  if (!horas) return;
+  const horasLabel = horas + (horas === 1 ? ' hora' : ' horas');
+
+  // "Curso de X": si el título ya empieza con "Curso de", no se repite
+  const cursoNombre = (course.courseTitle || '').replace(/^\s*curso\s+(?:de\s+|del\s+)?/i, '').trim() || course.courseTitle;
+  const tienePuntaje = course.percentage !== null && course.percentage !== undefined && course.percentage !== '';
+
+  const hoy = course.date instanceof Date ? course.date : new Date();
+  const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  // Si solo se conoce el mes del curso, la fecha al pie es la de emisión (hoy); el mes del curso va en el texto
+  const fechaDoc = course.monthOnly ? new Date() : hoy;
+  const fechaStr = `${fechaDoc.getDate()} de ${meses[fechaDoc.getMonth()]} de ${fechaDoc.getFullYear()}`;
+  const fechaStrCert = `Quilpué, ${String(fechaDoc.getDate()).padStart(2,'0')} de ${meses[fechaDoc.getMonth()]} de ${fechaDoc.getFullYear()}`;
+
+  const qrCaption = opts.manual ? 'Curso Presencial' : 'Plataforma Online<br>Nueva Ley 21.659';
+
+  const commonData = {
+    studentId: student.uid || null,
+    studentName: student.name,
+    studentRut: student.rut || '',
+    courseId: course.courseId || null,
+    courseName: course.courseTitle,
+    percentage: tienePuntaje ? course.percentage : null,
+    score: course.score || null,
+    ...(keepIssued ? {} : { issuedAt: firebase.firestore.FieldValue.serverTimestamp(), issuedBy: auth.currentUser ? auth.currentUser.uid : null }),
+    ...(course.monthOnly
+      ? { courseMonth: hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0') }
+      : { courseDate: firebase.firestore.Timestamp.fromDate(hoy) }),
+    hours: horas,
+    modality: opts.manual ? 'presencial' : 'online',
+    source: opts.manual ? 'manual' : 'lms',
+    diplomaToken: diplomaToken,
+    certToken: certToken,
+    rosterId: opts.rosterId || null
+  };
+
+  // DIPLOMA (A4 horizontal sobre plantilla)
+  const diplomaDiv = $('diplomaTemplate');
+  const nombreAlumno = escapeHtml(student.name);
+  const normCurso = (course.courseTitle || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const sinOS10 = CURSOS_SIN_OS10.some(k => normCurso.includes(k));
+  const textoDiploma = `En reconocimiento a su destacada participación y compromiso durante el Curso de <b>${escapeHtml(cursoNombre)}</b>, habiendo aprobado satisfactoriamente el programa y cumplido con ${horas === 1 ? 'la' : 'las'} <b>${horasLabel}</b> de capacitación${sinOS10 ? '' : ' exigidas por la Subsecretaría de Prevención del Delito y el Departamento OS10 de Carabineros de Chile'}${tienePuntaje ? `, obteniendo un promedio final de <b>${course.percentage}%</b>.` : '.'}`;
+  diplomaDiv.innerHTML = `
+    <img class="doc-bg" src="${IMG_PLANTILLA_DIPLOMA}" alt="" crossorigin="anonymous">
+    <div class="doc-slot nowrap dp-label doc-label" data-fit="19,12"><div class="t">SE OTORGA EL PRESENTE DIPLOMA A:</div></div>
+    <div class="doc-slot nowrap dp-name doc-name" data-fit-name="40,28,26,15"><div class="t">${nombreAlumno}</div></div>
+    <div class="doc-slot wrap dp-body doc-body" data-fit="19,11"><div class="t">${textoDiploma}</div></div>
+    <div class="doc-slot nowrap dp-date doc-body" data-fit="17,12"><div class="t">${fechaStr}</div></div>
+    <img class="doc-img dp-firma" src="${IMG_FIRMA}" alt="Firma" crossorigin="anonymous">
+    <div class="doc-slot nowrap dp-dir1 doc-body" data-fit="17,11"><div class="t">Elizabeth M. Orellana Pizarro</div></div>
+    <div class="doc-slot nowrap dp-dir2 doc-body" data-fit="14,10"><div class="t">DIRECTORA ACADÉMICA INASEP</div></div>
+    <img class="doc-img dp-sello" src="${IMG_SELLO_OFICIAL}" alt="Sello" crossorigin="anonymous">
+    <div class="doc-qr dp-qr"><div id="qrDiploma"></div><div class="doc-qr-text">Escanee para verificar<br>Instituto INASEP SpA<br>${qrCaption}</div></div>
+  `;
+
+  // CERTIFICADO (A4 vertical sobre plantilla)
+  const certDiv = $('certTemplate');
+  const textoCert = `<b>RUT:</b> ${escapeHtml(student.rut) || '________________'} realizó y finalizó de manera exitosa el <b>Curso de ${escapeHtml(cursoNombre)}</b> en Instituto Inasep SpA., durante el mes de ${meses[hoy.getMonth()].toUpperCase()} del ${hoy.getFullYear()}, con una carga horaria de ${horas} Horas${tienePuntaje ? `, aprobando con un ${course.percentage}% todos sus módulos.` : '.'}<br><br>Se extiende el presente certificado, para los fines que estime conveniente.`;
+  certDiv.innerHTML = `
+    <img class="doc-bg" src="${IMG_PLANTILLA_CERT}" alt="" crossorigin="anonymous">
+    <div class="doc-slot nowrap ct-sub doc-label" data-fit="18,12"><div class="t">INSTITUTO INASEP SPA CERTIFICA QUE:</div></div>
+    <div class="doc-slot nowrap ct-name doc-name" data-fit-name="36,26,24,15"><div class="t">${nombreAlumno}</div></div>
+    <div class="doc-slot wrap ct-body doc-body" data-fit="20,11"><div class="t" style="text-align:justify;text-align-last:center">${textoCert}</div></div>
+    <div class="doc-slot nowrap ct-date doc-body" data-fit="18,12"><div class="t">${fechaStrCert}</div></div>
+    <img class="doc-img ct-firma" src="${IMG_FIRMA}" alt="Firma" crossorigin="anonymous">
+    <div class="ct-firma-line"></div>
+    <div class="doc-slot wrap ct-dir doc-body" data-fit="17,11"><div class="t">Elizabeth Orellana Pizarro<br>Directora<br>Instituto Inasep SpA</div></div>
+    <div class="doc-qr ct-qr"><div id="qrCert"></div><div class="doc-qr-text">Escanee para verificar<br>Instituto INASEP SpA<br>${qrCaption}</div></div>
+  `;
+
+  // Mostrar ambas vistas ANTES de medir (los textos se ajustan con la fuente ya cargada)
+  $('previewDiplomaContainer').classList.remove('hidden');
+  $('previewCertContainer').classList.remove('hidden');
+  await Promise.all([
+    generarQRTransparente($('qrDiploma'), diplomaUrl, 100),
+    generarQRTransparente($('qrCert'), certUrl, 100)
+  ]);
+  await esperarFuentes();
+  ajustarTextos(diplomaDiv);
+  ajustarTextos(certDiv);
+
+  window.scrollTo({ top: $('previewDiplomaContainer').offsetTop - 20, behavior: 'smooth' });
+
+  // Guardar en Firestore y esperar confirmación: si no queda registrado, el QR no se podría verificar
+  try {
+    await withTimeout(Promise.all([
+      db.collection('diplomas').doc(diplomaToken).set({ ...commonData, token: diplomaToken, type: 'diploma', verificationUrl: diplomaUrl }, { merge: true }),
+      db.collection('diplomas').doc(certToken).set({ ...commonData, token: certToken, type: 'certificado', verificationUrl: certUrl }, { merge: true })
+    ]), 20000);
+    _registroOk = true;
+    try { onEmissionRegistered(commonData, keepIssued); } catch (e) { console.warn(e); }
+    $('downloadDiplomaBtn').disabled = false;
+    $('downloadCertBtn').disabled = false;
+  } catch (err) {
+    showError('⚠️ Los documentos se generaron pero NO quedaron registrados para verificación (' + (err.message || err.code) + '). No los descargues ni los entregues: sus QR dirían "Documento no encontrado". Intenta emitir de nuevo.');
+  }
+}
+
+// ── HELPER: QR con fondo TRANSPARENTE y tinta verde muy oscura (alto contraste, se lee bien sobre el papel crema) ──
+function generarQRTransparente(container, url, cssSize) {
+  return new Promise((resolve) => {
+    container.innerHTML = '';
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = 'position:absolute;left:-9999px;top:0;';
+    document.body.appendChild(tempDiv);
+    const RES = 480; // alta resolución interna: módulos nítidos al imprimir
+    new QRCode(tempDiv, { text: url, width: RES, height: RES, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    setTimeout(() => {
+      const src = tempDiv.querySelector('canvas');
+      if (src) {
+        const c = document.createElement('canvas');
+        c.width = src.width; c.height = src.height;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(src, 0, 0);
+        const d = ctx.getImageData(0, 0, c.width, c.height);
+        const px = d.data;
+        for (let i = 0; i < px.length; i += 4) {
+          const oscuro = px[i] < 128;
+          px[i] = 0x0b; px[i + 1] = 0x24; px[i + 2] = 0x16; px[i + 3] = oscuro ? 255 : 0;
+        }
+        ctx.putImageData(d, 0, 0);
+        const img = document.createElement('img');
+        img.src = c.toDataURL('image/png');
+        img.style.cssText = 'display:block;width:' + cssSize + 'px;height:' + cssSize + 'px;';
+        container.appendChild(img);
+      }
+      document.body.removeChild(tempDiv);
+      resolve();
+    }, 60);
+  });
+}
+
+// ── HELPER: esperar tipografías (con tope, por si no hay internet) ──
+async function esperarFuentes() {
+  try {
+    if (document.fonts && document.fonts.load) {
+      await Promise.race([
+        Promise.all([
+          document.fonts.load('500 18px "EB Garamond"'),
+          document.fonts.load('600 18px "EB Garamond"'),
+          document.fonts.load('700 30px "Cormorant Garamond"')
+        ]).then(() => document.fonts.ready),
+        new Promise(r => setTimeout(r, 3000))
+      ]);
+    }
+  } catch (e) { /* se usa la fuente de respaldo */ }
+}
+
+// ── HELPER: ajustar cada texto a su caja (nunca se traslapa ni se desborda) ──
+function cabeEnCaja(slot, t, margen) {
+  const W = slot.clientWidth, H = slot.clientHeight;
+  if (slot.classList.contains('nowrap')) return t.offsetWidth <= W - margen && t.offsetHeight <= H;
+  return t.scrollWidth <= t.clientWidth && t.offsetHeight <= H;
+}
+function ajustarSlot(slot, max, min, margen) {
+  const t = slot.firstElementChild;
+  for (let fs = max; fs >= min; fs -= 0.5) {
+    t.style.fontSize = fs + 'px';
+    if (cabeEnCaja(slot, t, margen)) return fs;
+  }
+  t.style.fontSize = min + 'px';
+  return min;
+}
+// Nombres: una línea (grande → chico); si es larguísimo, pasa a dos líneas
+function ajustarNombre(slot) {
+  const [max1, min1, max2, min2] = slot.dataset.fitName.split(',').map(Number);
+  const t = slot.firstElementChild;
+  slot.classList.add('nowrap'); slot.classList.remove('wrap');
+  t.style.whiteSpace = 'nowrap'; t.style.width = '';
+  for (let fs = max1; fs >= min1; fs -= 0.5) {
+    t.style.fontSize = fs + 'px';
+    if (cabeEnCaja(slot, t, 12)) return;
+  }
+  slot.classList.remove('nowrap'); slot.classList.add('wrap');
+  t.style.whiteSpace = 'normal'; t.style.width = '100%';
+  for (let fs = max2; fs >= min2; fs -= 0.5) {
+    t.style.fontSize = fs + 'px';
+    if (cabeEnCaja(slot, t, 0)) return;
+  }
+  t.style.fontSize = min2 + 'px';
+}
+function ajustarTextos(raiz) {
+  raiz.querySelectorAll('.doc-slot[data-fit]').forEach(s => {
+    const [max, min] = s.dataset.fit.split(',').map(Number);
+    ajustarSlot(s, max, min, 8);
+  });
+  raiz.querySelectorAll('.doc-slot[data-fit-name]').forEach(ajustarNombre);
+}
+
+// ── HELPER: descargar documento como PDF A4 exacto (una sola página) ──
+async function descargarDocumentoPDF(elementId, filename, orientation) {
+  const el = document.getElementById(elementId);
+
+  // Neutralizar transform del media query ANTES de que html2pdf capture
+  el.classList.add('no-transform');
+  el.style.boxShadow = 'none';
+  el.style.margin = '0';
+
+  // Esperar a que el browser aplique los estilos
+  await new Promise(r => setTimeout(r, 200));
+
+  const opt = {
+    margin: 0,
+    filename: filename,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: {
+      scale: 3,
+      useCORS: true,
+      allowTaint: false,
+      letterRendering: true,
+      logging: false,
+      scrollX: 0,
+      scrollY: 0,
+      backgroundColor: '#fbf6e9'
+    },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: orientation, compress: true }
+  };
+
+  try {
+    await html2pdf().set(opt).from(el).toPdf().get('pdf').then(pdf => {
+      // Seguridad: el PDF debe tener una sola página
+      while (pdf.internal.getNumberOfPages() > 1) pdf.deletePage(pdf.internal.getNumberOfPages());
+    }).save();
+  } finally {
+    el.classList.remove('no-transform');
+    el.style.boxShadow = '';
+    el.style.margin = '';
+  }
+}
+
+// DESCARGAS - PDF A4
+$('downloadDiplomaBtn').addEventListener('click', () => {
+  if (!_registroOk) { showError('⚠️ Este documento aún no está registrado para verificación.'); return; }
+  const filename = `Diploma_${selectedStudent?.name?.replace(/\s/g,'_') || 'alumno'}.pdf`;
+  descargarDocumentoPDF('diplomaTemplate', filename, 'landscape');
+});
+
+$('downloadCertBtn').addEventListener('click', () => {
+  if (!_registroOk) { showError('⚠️ Este documento aún no está registrado para verificación.'); return; }
+  const filename = `Certificado_${selectedStudent?.name?.replace(/\s/g,'_') || 'alumno'}.pdf`;
+  descargarDocumentoPDF('certTemplate', filename, 'portrait');
+});
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+
+// ═══════════════════════════════════════════════════════════
+// UTILIDADES NUEVAS
+// ═══════════════════════════════════════════════════════════
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo de espera agotado. Revisa tu conexión.')), ms))
+  ]);
+}
+
+// Carga horaria de un curso del LMS. Si el curso aún no la tiene, se pregunta una sola vez
+// y se guarda en el curso (campo "hours") para que no vuelva a preguntar.
+async function resolveCourseHours(course) {
+  const known = Number(courseHoursCache[course.courseId] ?? course.hours);
+  if (Number.isInteger(known) && known > 0) return known;
+
+  const suggested = (course.courseTitle || '').toLowerCase().includes('operador') ? 36 : 120; // regla anterior, solo como sugerencia
+  const answer = prompt(
+    'El curso «' + course.courseTitle + '» no tiene carga horaria definida.\n\n' +
+    '¿Cuántas horas dura? Se guardará en el curso y no se volverá a preguntar.',
+    String(suggested)
+  );
+  if (answer === null) return null;
+  const h = parseInt(answer, 10);
+  if (!Number.isInteger(h) || h < 1 || h > 999 || String(h) !== answer.trim()) {
+    showError('⚠️ Carga horaria inválida. Escribe solo el número de horas (por ejemplo 36).');
+    return null;
+  }
+  if (course.courseId) {
+    try {
+      await db.collection('courses').doc(course.courseId).update({ hours: h });
+      courseHoursCache[course.courseId] = h;
+      if (coursesCache[course.courseId]) coursesCache[course.courseId].hours = h;
+    } catch (err) {
+      showError('⚠️ Se usará ' + h + ' horas, pero no se pudo guardar en el curso: ' + (err.message || err.code));
+    }
+  }
+  return h;
+}
+
+// ═══════════════════════════════════════════════════════════
+// NÓMINA MANUAL (cursos presenciales)
+// ═══════════════════════════════════════════════════════════
+let manualRows = [];   // [{ name, rut, pct, tokens, emitted }]
+
+function normalizarRut(raw) {
+  const t = String(raw || '').replace(/[^0-9kK]/g, '').toUpperCase();
+  if (t.length < 2) return null;
+  const body = t.slice(0, -1), dv = t.slice(-1);
+  if (!/^\d{7,8}$/.test(body)) return null;
+  let sum = 0, mul = 2;
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += Number(body[i]) * mul;
+    mul = mul === 7 ? 2 : mul + 1;
+  }
+  const r = 11 - (sum % 11);
+  const esperado = r === 11 ? '0' : (r === 10 ? 'K' : String(r));
+  if (dv !== esperado) return null;
+  return body.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + dv;
+}
+
+function pareceRut(s) {
+  return /^\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK]$/.test(String(s || '').replace(/\s/g, ''));
+}
+
+function fillManualCourseList() {
+  const dl = $('mCourseList');
+  if (!dl) return;
+  dl.innerHTML = '';
+  Object.keys(coursesCache).forEach(id => {
+    const o = document.createElement('option');
+    o.value = coursesCache[id].title || '';
+    dl.appendChild(o);
+  });
+}
+
+function mCourseChanged() {
+  const t = $('mCourseName').value.trim();
+  const id = Object.keys(coursesCache).find(k => (coursesCache[k].title || '') === t);
+  if (id && Number(coursesCache[id].hours) > 0) $('mHours').value = Number(coursesCache[id].hours);
+}
+
+function parseNomina(text) {
+  const out = [];
+  String(text || '').split(/\r?\n/).forEach(line => {
+    if (!line.trim()) return;
+    const sep = line.includes('\t') ? '\t' : (line.includes(';') ? ';' : ',');
+    let cols = line.split(sep).map(c => c.trim());
+    if (cols.length >= 2 && pareceRut(cols[0]) && !pareceRut(cols[1])) {
+      cols = [cols[1], cols[0]].concat(cols.slice(2));   // venía "RUT; Nombre"
+    }
+    out.push({
+      name: (cols[0] || '').replace(/\s+/g, ' '),
+      rut: cols[1] || '',
+      pct: (cols[2] || '').replace('%', '').trim(),
+      tokens: null,
+      emitted: false
+    });
+  });
+  return out;
+}
+
+function validarFila(r, idx) {
+  if (!r.name || !/\S+\s+\S+/.test(r.name.trim())) return 'Falta el nombre completo';
+  const rut = normalizarRut(r.rut);
+  if (!rut) return 'RUT inválido';
+  const dup = manualRows.findIndex((o, j) => j !== idx && normalizarRut(o.rut) === rut);
+  if (dup !== -1) return 'RUT repetido en la nómina';
+  if (String(r.pct).trim() !== '') {
+    const n = Number(String(r.pct).replace(',', '.'));
+    if (!isFinite(n) || n < 0 || n > 100) return 'La nota debe ser un porcentaje de 0 a 100';
+  }
+  return '';
+}
+
+function renderManualRows() {
+  const box = $('mRows');
+  if (!manualRows.length) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="m-summary" id="mSummary"></div>' + manualRows.map((r, i) => `
+    <div class="m-row" id="mrow-${i}">
+      <input class="m-in m-name" value="${escapeHtml(r.name)}" placeholder="Nombre completo" oninput="manualEdit(${i},'name',this.value)">
+      <input class="m-in m-rut" value="${escapeHtml(r.rut)}" placeholder="RUT" oninput="manualEdit(${i},'rut',this.value)" onchange="manualRutChange(${i},this)">
+      <input class="m-in m-pct" value="${escapeHtml(r.pct)}" placeholder="Nota %" inputmode="decimal" oninput="manualEdit(${i},'pct',this.value)">
+      <span class="m-status" id="mst-${i}"></span>
+      <button type="button" class="btn-outline" onclick="emitirManual(${i})">${r.emitted ? '🔁 Volver a emitir' : '🎓 Emitir'}</button>
+      <button type="button" class="m-del" title="Quitar de la nómina" onclick="manualRemove(${i})">✕</button>
+    </div>`).join('');
+  paintManualStatus();
+}
+
+function paintManualStatus() {
+  let errores = 0;
+  manualRows.forEach((r, i) => {
+    const el = $('mst-' + i);
+    const err = validarFila(r, i);
+    if (err) errores++;
+    if (!el) return;
+    if (err) { el.className = 'm-status m-err'; el.textContent = '⚠️ ' + err; }
+    else if (r.emitted) { el.className = 'm-status m-done'; el.textContent = '✅ Emitido y registrado'; }
+    else { el.className = 'm-status m-ok'; el.textContent = 'Listo para emitir'; }
+  });
+  const sum = $('mSummary');
+  if (sum) {
+    const emitidos = manualRows.filter(r => r.emitted).length;
+    sum.innerHTML = manualRows.length + ' persona(s) · ' +
+      (errores ? '<span style="color:#c0392b">' + errores + ' con errores</span>' : '<span style="color:#27ae60">sin errores</span>') +
+      ' · ' + emitidos + ' emitida(s)';
+  }
+}
+
+function manualEdit(i, field, value) {
+  if (!manualRows[i]) return;
+  manualRows[i][field] = value;
+  paintManualStatus();
+}
+
+function manualRutChange(i, input) {
+  const f = normalizarRut(input.value);
+  if (f) { manualRows[i].rut = f; input.value = f; }
+  paintManualStatus();
+}
+
+function manualRemove(i) {
+  manualRows.splice(i, 1);
+  renderManualRows();
+}
+
+const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+function leerCursoManual() {
+  const title = $('mCourseName').value.trim().replace(/\s+/g, ' ');
+  const hours = Number($('mHours').value);
+  const month = Number($('mMonth').value);
+  const year  = Number($('mYear').value);
+  if (title.length < 5) { showError('⚠️ Escribe el nombre del curso.'); return null; }
+  if (!Number.isInteger(hours) || hours < 1 || hours > 999) { showError('⚠️ Indica la carga horaria en horas (número entero).'); return null; }
+  if (!Number.isInteger(month) || month < 1 || month > 12) { showError('⚠️ Elige el mes en que se realizó el curso.'); return null; }
+  if (!Number.isInteger(year) || year < 2020 || year > 2100) { showError('⚠️ Indica el año en que se realizó el curso.'); return null; }
+  const now = new Date();
+  if (year * 12 + month > now.getFullYear() * 12 + (now.getMonth() + 1)) { showError('⚠️ El mes del curso no puede ser futuro.'); return null; }
+  const courseId = Object.keys(coursesCache).find(k => (coursesCache[k].title || '') === title) || null;
+  const ym = year + '-' + String(month).padStart(2, '0');
+  return { title, hours, month, year, ym, date: new Date(year, month - 1, 1, 12, 0, 0), courseId };
+}
+
+async function emitirManual(i) {
+  if (!_adminVerified) { showError('⛔ Acceso no autorizado.'); return; }
+  clearError();
+  const row = manualRows[i];
+  if (!row) return;
+  const cfg = leerCursoManual();
+  if (!cfg) return;
+  const err = validarFila(row, i);
+  if (err) { showError('⚠️ ' + (row.name || 'Fila ' + (i + 1)) + ': ' + err + '.'); return; }
+
+  const rut = normalizarRut(row.rut);
+  const rosterId = rosterIdFor(cfg, rut);
+
+  // Si esta persona ya está guardada en este curso y mes, se reutiliza su QR (no se duplica)
+  try {
+    const snap = await db.collection('presenciales').doc(rosterId).get();
+    if (snap.exists && snap.data().tokens && !row.tokens) row.tokens = snap.data().tokens;
+  } catch (e) { /* sin acceso a la nómina guardada: se emite igual */ }
+
+  const pctTxt = String(row.pct).trim();
+  selectedStudent = { uid: null, name: row.name.trim(), rut: rut, email: '' };
+  selectedCourseResult = {
+    courseId: cfg.courseId,
+    courseTitle: cfg.title,
+    percentage: pctTxt === '' ? null : Math.round(Number(pctTxt.replace(',', '.'))),
+    score: null,
+    date: cfg.date,
+    monthOnly: true,
+    hours: cfg.hours
+  };
+  await generateBothDocuments({ manual: true, tokens: row.tokens, rosterId });
+  if (!_registroOk) return;
+
+  row.tokens = { dip: diplomaToken, cert: certToken };   // al volver a emitir se mantiene el mismo QR
+  row.emitted = true;
+  row.rut = rut;
+  try {
+    await saveRosterRow(row, cfg, { tokens: row.tokens, emitted: true });
+  } catch (e) {
+    showError('✅ Los documentos quedaron emitidos y verificables, pero NO se pudo guardar a la persona en la nómina del curso (' + (e.message || e.code) + '). Si dice permisos, publica las reglas nuevas de Firestore.');
+  }
+  renderManualRows();
+}
+
+// ═══════════════════════════════════════════════════════════
+// NÓMINAS GUARDADAS (colección "presenciales")
+// Un registro por persona + curso + mes. Sirve para buscarla después y reemitir con el mismo QR.
+// ═══════════════════════════════════════════════════════════
+let savedCache = [];
+let savedLoaded = false;
+
+function slugCurso(t) {
+  return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50) || 'curso';
+}
+
+function rosterIdFor(cfg, rutFormateado) {
+  const rutKey = String(rutFormateado).replace(/[^0-9K]/g, '');
+  return (cfg.courseId || slugCurso(cfg.title)) + '_' + cfg.ym.replace('-', '') + '_' + rutKey;
+}
+
+async function saveRosterRow(row, cfg, extra) {
+  const rut = normalizarRut(row.rut);
+  const id = rosterIdFor(cfg, rut);
+  const ref = db.collection('presenciales').doc(id);
+  const snap = await ref.get();
+  const prev = snap.exists ? snap.data() : null;
+  const tokens = (extra && extra.tokens) || row.tokens || (prev && prev.tokens) || null;
+  const pctTxt = String(row.pct).trim();
+  const data = {
+    courseName: cfg.title,
+    courseId: cfg.courseId || null,
+    courseMonth: cfg.ym,
+    hours: cfg.hours,
+    name: row.name.trim(),
+    rut: rut,
+    pct: pctTxt === '' ? null : Math.round(Number(pctTxt.replace(',', '.'))),
+    tokens: tokens,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  if (!prev) data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+  if (extra && extra.emitted) data.emittedAt = firebase.firestore.FieldValue.serverTimestamp();
+  await ref.set(data, { merge: true });
+  row.id = id;
+  if (tokens) row.tokens = tokens;
+  if (savedLoaded) {
+    const rec = Object.assign({ id }, prev || {}, data);
+    const k = savedCache.findIndex(x => x.id === id);
+    if (k === -1) savedCache.push(rec); else savedCache[k] = rec;
+    fillSavedCourses();
+    renderSaved();
+  }
+  return id;
+}
+
+async function guardarNomina() {
+  if (!_adminVerified) { showError('⛔ Acceso no autorizado.'); return; }
+  clearError();
+  if (!manualRows.length) { showError('⚠️ No hay personas en la nómina.'); return; }
+  const cfg = leerCursoManual();
+  if (!cfg) return;
+  let ok = 0, omitidas = 0, fallo = null;
+  for (let i = 0; i < manualRows.length; i++) {
+    if (validarFila(manualRows[i], i)) { omitidas++; continue; }
+    try { await saveRosterRow(manualRows[i], cfg, {}); ok++; }
+    catch (e) { fallo = e; break; }
+  }
+  if (fallo) {
+    showError('⚠️ No se pudo guardar la nómina (' + (fallo.message || fallo.code) + '). Si dice permisos, publica las reglas nuevas de Firestore.');
+    return;
+  }
+  renderManualRows();
+  showOk('✅ ' + ok + ' persona(s) guardada(s) en «' + cfg.title + '» (' + MESES_ES[cfg.month - 1] + ' ' + cfg.year + ').' +
+    (omitidas ? ' ' + omitidas + ' con errores no se guardaron.' : ''));
+}
+
+function showOk(msg) {
+  const el = $('manualOk');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+  clearTimeout(showOk._t);
+  showOk._t = setTimeout(() => el.classList.add('hidden'), 8000);
+}
+
+function normTxt(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[.\-\s]/g, '');
+}
+
+function cursoKey(rec) { return rec.courseName + '||' + rec.courseMonth; }
+function cursoLabel(rec) {
+  const p = String(rec.courseMonth || '').split('-');
+  return rec.courseName + ' — ' + (MESES_ES[Number(p[1]) - 1] || '?') + ' ' + p[0];
+}
+
+async function cargarGuardados() {
+  const box = $('mSavedList');
+  box.innerHTML = '<p class="m-hint">Cargando…</p>';
+  try {
+    const snap = await db.collection('presenciales').get();
+    savedCache = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    savedLoaded = true;
+  } catch (err) {
+    box.innerHTML = '';
+    showError('⚠️ No se pudieron leer las nóminas guardadas (' + (err.message || err.code) + '). Si dice permisos, publica las reglas nuevas de Firestore.');
+    return;
+  }
+  fillSavedCourses();
+  renderSaved();
+}
+
+function fillSavedCourses() {
+  const sel = $('mSavedCourse');
+  const actual = sel.value;
+  const claves = {};
+  savedCache.forEach(r => { claves[cursoKey(r)] = r; });
+  const items = Object.keys(claves).sort((a, b) => (claves[b].courseMonth || '').localeCompare(claves[a].courseMonth || '') || a.localeCompare(b));
+  sel.innerHTML = '<option value="">Todos los cursos</option>';
+  items.forEach(k => {
+    const n = savedCache.filter(r => cursoKey(r) === k).length;
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = cursoLabel(claves[k]) + ' (' + n + ')';
+    sel.appendChild(o);
+  });
+  if (items.includes(actual)) sel.value = actual;
+}
+
+function savedFiltrados() {
+  const k = $('mSavedCourse').value;
+  const q = normTxt($('mSavedSearch').value);
+  return savedCache
+    .filter(r => (!k || cursoKey(r) === k) && (!q || normTxt(r.name).includes(q) || normTxt(r.rut).includes(q)))
+    .sort((a, b) => (b.courseMonth || '').localeCompare(a.courseMonth || '') || String(a.name).localeCompare(String(b.name), 'es'));
+}
+
+function renderSaved() {
+  const box = $('mSavedList');
+  if (!savedCache.length) { box.innerHTML = '<p class="m-hint">Aún no hay personas guardadas.</p>'; return; }
+  const lista = savedFiltrados();
+  const k = $('mSavedCourse').value;
+  box.innerHTML =
+    '<div class="m-summary">' + lista.length + ' persona(s)' +
+    (k && lista.length ? ' · <a href="#" onclick="cargarCursoCompleto();return false;" style="color:#2a5536">Cargar todo este curso en la nómina</a>' : '') + '</div>' +
+    (lista.length ? lista.map(r => `
+      <div class="m-row">
+        <span class="m-name" style="font-size:.9rem"><b>${escapeHtml(r.name)}</b><br><span style="color:#6b8a73;font-size:.8rem">${escapeHtml(cursoLabel(r))}</span></span>
+        <span class="m-rut" style="font-size:.88rem">${escapeHtml(r.rut)}</span>
+        <span class="m-status ${r.tokens ? 'm-done' : 'm-ok'}">${r.tokens ? '✅ Emitido' : 'Pendiente de emitir'}</span>
+        <button type="button" class="btn-outline" onclick="cargarGuardado('${escapeHtml(r.id)}')">📥 Cargar</button>
+      </div>`).join('') : '<p class="m-hint">Nadie coincide con la búsqueda.</p>');
+}
+
+function formCoincide(rec) {
+  const p = String(rec.courseMonth || '').split('-');
+  return $('mCourseName').value.trim().replace(/\s+/g, ' ') === rec.courseName &&
+         Number($('mMonth').value) === Number(p[1]) && Number($('mYear').value) === Number(p[0]);
+}
+
+function ponerCursoEnFormulario(rec) {
+  const p = String(rec.courseMonth || '').split('-');
+  $('mCourseName').value = rec.courseName;
+  $('mHours').value = rec.hours;
+  $('mMonth').value = String(Number(p[1]));
+  $('mYear').value = p[0];
+}
+
+function filaDesdeRegistro(rec) {
+  return { name: rec.name, rut: rec.rut, pct: rec.pct == null ? '' : String(rec.pct), tokens: rec.tokens || null, emitted: !!rec.tokens, id: rec.id };
+}
+
+function cargarGuardado(id) {
+  const rec = savedCache.find(r => r.id === id);
+  if (!rec) return;
+  if (manualRows.length && !formCoincide(rec)) {
+    if (!confirm('Esta persona es de otro curso o mes. Se reemplazará la nómina que hay en pantalla (lo ya guardado no se pierde). ¿Continuar?')) return;
+    manualRows = [];
+  }
+  ponerCursoEnFormulario(rec);
+  if (!manualRows.some(r => normalizarRut(r.rut) === rec.rut)) manualRows.push(filaDesdeRegistro(rec));
+  clearError();
+  renderManualRows();
+  $('mRows').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function cargarCursoCompleto() {
+  const k = $('mSavedCourse').value;
+  const recs = savedCache.filter(r => cursoKey(r) === k);
+  if (!recs.length) return;
+  if (manualRows.length && !confirm('Se reemplazará la nómina que hay en pantalla (lo ya guardado no se pierde). ¿Continuar?')) return;
+  ponerCursoEnFormulario(recs[0]);
+  manualRows = recs.slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'es')).map(filaDesdeRegistro);
+  clearError();
+  renderManualRows();
+}
+
+$('mCourseName').addEventListener('input', mCourseChanged);
+$('mLoadBtn').addEventListener('click', () => {
+  const filas = parseNomina($('mPaste').value);
+  if (!filas.length) { showError('⚠️ Pega primero la nómina (una persona por línea).'); return; }
+  clearError();
+  manualRows = manualRows.concat(filas);
+  $('mPaste').value = '';
+  renderManualRows();
+});
+$('mAddBtn').addEventListener('click', () => {
+  manualRows.push({ name: '', rut: '', pct: '', tokens: null, emitted: false });
+  renderManualRows();
+});
+$('mClearBtn').addEventListener('click', () => {
+  if (manualRows.length && !confirm('¿Quitar toda la nómina de la pantalla? Lo ya emitido sigue registrado.')) return;
+  manualRows = [];
+  renderManualRows();
+});
+
+$('mSaveBtn').addEventListener('click', guardarNomina);
+$('mSavedLoadBtn').addEventListener('click', cargarGuardados);
+$('mSavedCourse').addEventListener('change', renderSaved);
+$('mSavedSearch').addEventListener('input', renderSaved);
+(function () {
+  const hoy = new Date();
+  $('mMonth').value = String(hoy.getMonth() + 1);
+  $('mYear').value = String(hoy.getFullYear());
+})();
+</script>
+</body>
+</html>
